@@ -20,6 +20,47 @@ from notion2tex.unicode_map import (
 )
 
 
+def _unwrap_paragraph_itemize(text: str) -> tuple[str, int]:
+    """
+    Remove itemize wrappers that only hold ``\\item ~`` + ``\\paragraph{}`` (Notion toggles).
+    """
+    count = 0
+    pattern = re.compile(
+        r"\s*\\begin\{itemize\}\s*\n(?:\\tightlist\s*\n)?\s*\\item\s*~\s*\n",
+    )
+    while True:
+        m = pattern.search(text)
+        if not m:
+            break
+        body_start = m.end()
+        depth = 1
+        pos = body_start
+        end_pos = None
+        while pos < len(text) and depth > 0:
+            next_begin = text.find(r"\begin{itemize}", pos)
+            next_end = text.find(r"\end{itemize}", pos)
+            if next_end == -1:
+                break
+            if next_begin != -1 and next_begin < next_end:
+                depth += 1
+                pos = next_begin + len(r"\begin{itemize}")
+            else:
+                depth -= 1
+                if depth == 0:
+                    end_pos = next_end
+                    break
+                pos = next_end + len(r"\end{itemize}")
+        if end_pos is None:
+            break
+        text = text[: m.start()] + text[body_start:end_pos] + text[end_pos + len(r"\end{itemize}") :]
+        if text[end_pos + len(r"\end{itemize}") :].startswith("\n"):
+            text = text[: end_pos + len(r"\end{itemize}")] + text[
+                end_pos + len(r"\end{itemize}") + 1 :
+            ]
+        count += 1
+    return text, count
+
+
 def _enable_section_numbering(text):
     """Enable 1 / 1.1 / 1.1.1 numbering for section/subsection/subsubsection."""
     text = re.sub(
@@ -599,6 +640,7 @@ def fix_latex(tex_path):
     text, n_dollar = _fix_escaped_dollar_math(text)
     text, n_caption = _remove_empty_captions(text)
     text, n_tables = improve_tables_in_document(text)
+    text, n_toggle_items = _unwrap_paragraph_itemize(text)
 
     with open(tex_path, "w", encoding="utf-8") as f:
         f.write(text)
@@ -613,6 +655,8 @@ def fix_latex(tex_path):
     ]
     if n_toc:
         parts.append("TOC added")
+    if n_toggle_items:
+        parts.append(f"toggle lists {n_toggle_items}")
     console.detail("Fixes applied → " + ", ".join(parts))
 
 

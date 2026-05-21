@@ -120,6 +120,21 @@ def _repair_notion_tables(soup):
     return count
 
 
+def _unwrap_toggle_lists(soup):
+    """
+    Notion toggle blocks use <ul class="toggle"><li><details>…</details></li></ul>.
+    After converting details to headings, unwrap the list so Pandoc does not emit
+    \\item ~ before \\paragraph{}.
+    """
+    count = 0
+    for ul in list(soup.find_all("ul", class_=lambda c: c and "toggle" in c)):
+        for li in list(ul.find_all("li", recursive=False)):
+            li.unwrap()
+        ul.unwrap()
+        count += 1
+    return count
+
+
 def clean_html_for_pandoc(file_input, file_output):
     try:
         with open(file_input, "r", encoding="utf-8") as f:
@@ -151,9 +166,11 @@ def clean_html_for_pandoc(file_input, file_output):
 
     for details in all_details:
         details.unwrap()
+    toggles_unwrapped = _unwrap_toggle_lists(soup)
     bar.advance(sublabel="Toggles")
     console.detail(
-        f"Toggles → {toggles_found} headings ({headings_with_math} with math)"
+        f"Toggles → {toggles_found} headings ({headings_with_math} with math), "
+        f"{toggles_unwrapped} lists flattened"
     )
 
     # 2. Normalize cover properties (all database fields present in the export)

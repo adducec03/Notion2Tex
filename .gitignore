@@ -1,7 +1,7 @@
 /Automata, Languages and Computing
 /.venv/
-/__pycache__/
-/notion2tex/__pycache__/
+**/__pycache__/
+*.pyc
 *.egg-info/
 /dist/
 /build/

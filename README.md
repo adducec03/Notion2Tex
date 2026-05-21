@@ -2,7 +2,7 @@
 
 Convert a **Notion HTML export** into a printable **PDF** with correct heading hierarchy, math, tables, images, and a clickable table of contents.
 
-Designed for large course notes (e.g. *Automata, Languages and Computing*) exported from Notion with KaTeX formulas, nested toggles, and `simple-table` blocks.
+Designed for large course notes exported from Notion with KaTeX formulas, nested toggles, and `simple-table` blocks.
 
 ---
 

@@ -257,6 +257,10 @@
   max-width: 52rem;
 }
 
+.md-content__inner:has(.n2t-landing) .headerlink {
+  display: none;
+}
+
 .md-typeset .n2t-landing,
 .md-typeset .n2t-privacy,
 .md-typeset .n2t-features,

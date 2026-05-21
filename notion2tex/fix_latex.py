@@ -135,12 +135,58 @@ def _enable_hyperref_links(text):
     )
 
 
+def _add_roman_frontmatter_pagenumbering(text: str) -> str:
+    """Cover + index use roman numerals (i, ii, …)."""
+    if re.search(
+        r"\\begin\{document\}\s*\n\s*\\pagenumbering\{roman\}\s*\n\s*\\setcounter\{page\}\{1\}",
+        text,
+    ):
+        return text
+    doc_roman = "\\begin{document}\n\\pagenumbering{roman}\n\\setcounter{page}{1}"
+    text = re.sub(
+        r"\\begin\{document\}(?:\\n\\+)?\\pagenumbering\{roman\}(?:\\n\\+)?\\setcounter\{page\}\{1\}",
+        lambda _: doc_roman,
+        text,
+        count=1,
+    )
+    if r"\pagenumbering{roman}" not in text:
+        text = text.replace(
+            r"\begin{document}",
+            "\\begin{document}\n\\pagenumbering{roman}\n\\setcounter{page}{1}",
+            1,
+        )
+    return text
+
+
+def _ensure_arabic_mainmatter_pagenumbering(text: str) -> str:
+    """Body chapters start at page 1 (arabic); TOC entries match real page numbers."""
+    if r"\pagenumbering{arabic}" in text:
+        return text
+    m = re.search(r"\\tableofcontents\s*(?:\n|\\clearpage)", text)
+    if not m:
+        return text
+    insert_at = m.end()
+    # Skip blank lines / newpage already following the TOC
+    while insert_at < len(text) and text[insert_at] in "\n\r":
+        insert_at += 1
+    if text[insert_at : insert_at + len(r"\newpage")] == r"\newpage":
+        insert_at += len(r"\newpage")
+        while insert_at < len(text) and text[insert_at] in "\n\r":
+            insert_at += 1
+    arabic_block = "\\pagenumbering{arabic}\n\\setcounter{page}{1}\n\n"
+    return text[:insert_at] + arabic_block + text[insert_at:]
+
+
 def _add_table_of_contents(text):
     """
     Clickable TOC after the cover page (hyperref/bookmark).
+    Front matter uses roman page numbers; main text uses arabic from page 1.
     Requires two pdflatex runs to refresh page numbers.
     """
+    text = _add_roman_frontmatter_pagenumbering(text)
+
     if r"\tableofcontents" in text:
+        text = _ensure_arabic_mainmatter_pagenumbering(text)
         return text, 0
 
     if r"\setcounter{tocdepth}" not in text:
@@ -156,7 +202,9 @@ def _add_table_of_contents(text):
         "\n\\newpage\n"
         "\\section*{Indice}\n"
         "\\tableofcontents\n"
-        "\\newpage\n\n"
+        "\\newpage\n"
+        "\\pagenumbering{arabic}\n"
+        "\\setcounter{page}{1}\n\n"
     )
 
     pos = _toc_insertion_point(text)
@@ -277,12 +325,23 @@ def _deescape_pandoc_latex(text):
 
 
 def _fix_literal_backslash_n_in_preamble(text: str) -> str:
-    """Repair ``\\n`` typos in \\usepackage lines (shows as garbage on page 1)."""
-    return re.sub(
+    """Repair literal ``\\n`` typos in the preamble and after \\begin{document}."""
+    text = re.sub(
         r"(\\usepackage\{[^}]+\})\\n(\\usepackage)",
         r"\1\n\2",
         text,
     )
+    text = text.replace(
+        r"\begin{document}\n\\pagenumbering",
+        "\\begin{document}\n\\pagenumbering",
+    )
+    roman_counter = "\\pagenumbering{roman}\n\\setcounter{page}{1}"
+    text = re.sub(
+        r"\\pagenumbering\{roman\}\\n\\+setcounter\{page\}\{1\}",
+        lambda _: roman_counter,
+        text,
+    )
+    return text
 
 
 _PANDOC_STRIKEOUT_BLOCK = re.compile(

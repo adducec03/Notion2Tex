@@ -175,7 +175,7 @@ Fixes Pandoc/Notion artifacts in the `.tex` file:
 | Area | Fix |
 |------|-----|
 | Structure | Section numbering `1.` / `1.1.` / `1.1.1.`; unnumbered cover page |
-| TOC | Inserts `\tableofcontents` after the cover; clickable PDF links (`hyperref`) |
+| TOC | Inserts `\tableofcontents` after the cover; front matter in roman numerals, body from page 1 in arabic |
 | Figures | `[H]` placement so images stay in document order |
 | Math | Escaped `\$...\$`, `\textbackslash`, `gather*` / `cases`, Unicode symbols |
 | Titles | Corrupted `\section{...}` with KaTeX / bookmarks |

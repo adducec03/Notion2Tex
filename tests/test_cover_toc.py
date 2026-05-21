@@ -1,4 +1,10 @@
-from notion2tex.fix_latex import _toc_insertion_point, _unnumbered_cover_section
+from notion2tex.fix_latex import (
+    _add_roman_frontmatter_pagenumbering,
+    _add_table_of_contents,
+    _ensure_arabic_mainmatter_pagenumbering,
+    _toc_insertion_point,
+    _unnumbered_cover_section,
+)
 
 
 def test_unnumbered_first_section():
@@ -24,3 +30,37 @@ def test_toc_before_first_body_section():
     pos = _toc_insertion_point(text)
     assert pos is not None
     assert text[pos:].startswith(r"\section{Chapter One}")
+
+
+def test_roman_frontmatter_and_arabic_mainmatter():
+    text = r"""
+\begin{document}
+\maketitle
+\section*{Cover}
+\newpage
+\section*{Indice}
+\tableofcontents
+\newpage
+\section{Chapter One}
+"""
+    text, n = _add_table_of_contents(text)
+    assert n == 0
+    assert r"\pagenumbering{roman}" in text
+    assert text.index(r"\pagenumbering{roman}") < text.index(r"\tableofcontents")
+    assert r"\pagenumbering{arabic}" in text
+    assert text.index(r"\tableofcontents") < text.index(r"\pagenumbering{arabic}")
+    assert text.index(r"\pagenumbering{arabic}") < text.index(r"\section{Chapter One}")
+
+
+def test_inserts_toc_with_page_numbering():
+    text = r"""
+\begin{document}
+\section*{Title}
+\section{Body}
+"""
+    text, n = _add_table_of_contents(text)
+    assert n == 1
+    assert r"\pagenumbering{roman}" in text
+    assert r"\section*{Indice}" in text
+    assert r"\pagenumbering{arabic}" in text
+    assert text.index(r"\pagenumbering{arabic}") < text.index(r"\section{Body}")

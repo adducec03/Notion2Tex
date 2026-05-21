@@ -1,5 +1,16 @@
 # Development
 
+## Contributing
+
+Notion2Tex is open source under the [MIT license](https://github.com/adducec03/Notion2Tex/blob/main/LICENSE). Contributions are welcome from everyone — no prior approval needed.
+
+1. Fork the [repository](https://github.com/adducec03/Notion2Tex) and clone it locally.
+2. Create a branch for your change.
+3. Install in editable mode and run the test suite (see below).
+4. Open a [pull request](https://github.com/adducec03/Notion2Tex/pulls) with a short description of what you fixed or added.
+
+Bug reports, export samples (redacted if needed), and documentation improvements are valuable too — use [GitHub Issues](https://github.com/adducec03/Notion2Tex/issues).
+
 ## Project structure
 
 ```

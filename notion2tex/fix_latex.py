@@ -2,31 +2,13 @@ import re
 import sys
 
 from notion2tex.table_latex import improve_tables_in_document
-
-# Notion Unicode → LaTeX (hex code points)
-UNICODE_MATH = {
-    "03B1": r"\alpha",
-    "03B2": r"\beta",
-    "03B3": r"\gamma",
-    "03B4": r"\delta",
-    "03B5": r"\varepsilon",
-    "03BB": r"\lambda",
-    "03C9": r"\omega",
-    "0393": r"\Gamma",
-    "0394": r"\Delta",
-    "03A3": r"\Sigma",
-    "2135": r"\aleph",
-    "2208": r"\in",
-    "2217": r"\ast",
-    "2264": r"\leq",
-    "2265": r"\geq",
-    "251C": r"\vdash",
-}
-
-UNICODE_TEXT = {
-    "203E": r"\textasciimacron",
-    "02CB": r"`",
-}
+from notion2tex.katex_latex import normalize_katex_in_document
+from notion2tex.unicode_map import (
+    UNICODE_TEXT,
+    has_unicode_preamble,
+    latex_for_codepoint,
+    unicode_preamble_lines,
+)
 
 
 def _enable_section_numbering(text):
@@ -123,34 +105,26 @@ def _add_table_of_contents(text):
 
 
 def _unicode_preamble():
-    lines = []
-    for code, cmd in UNICODE_MATH.items():
-        lines.append(
-            f"\\DeclareUnicodeCharacter{{{code}}}{{\\ensuremath{{{cmd}}}}}"
-        )
-    for code, cmd in UNICODE_TEXT.items():
-        lines.append(f"\\DeclareUnicodeCharacter{{{code}}}{{{cmd}}}")
-    lines.append("\\begin{document}")
-    return "\n" + "\n".join(lines) + "\n"
+    return "\n" + "\n".join(unicode_preamble_lines()) + "\n\\begin{document}\n"
 
 
-def _fix_vdash_char(text):
-    """Pandoc emits \\char\"251C which breaks pdflatex (char > 255)."""
+def _fix_pandoc_char_escapes(text):
+    """Replace Pandoc \\char\"XXXX with a LaTeX command when mapped."""
+
+    def repl(match: re.Match[str]) -> str:
+        hex_code = match.group(1)
+        latex = latex_for_codepoint(hex_code)
+        if latex is None:
+            return match.group(0)
+        if hex_code in UNICODE_TEXT:
+            return latex
+        return rf"\ensuremath{{{latex}}}"
+
     return re.sub(
-        r'\\char\s*"\s*251[cC]',
-        r"\\vdash",
-        text,
-        flags=re.IGNORECASE,
-    )
-
-
-def _fix_chi_command(text):
-    text = re.sub(
-        r"\\color\{red\}\\Chi\b",
-        r"\\textcolor{red}{\\textsf{X}}",
+        r'\\char\s*"\s*([0-9A-Fa-f]{3,4})',
+        repl,
         text,
     )
-    return text
 
 
 def _strip_trailing_backslash(formula):
@@ -242,6 +216,7 @@ def _pandoc_dollars_to_latex(content):
     s = re.sub(r"\\textquotesingle", "'", s)
     s = _deescape_pandoc_latex(s)
     s = re.sub(r"\\textbackslash\s+([A-Za-z]+)", r"\\\1", s)
+    s = normalize_katex_in_document(s)
     s = s.replace(r"\_", "_")
     s = re.sub(r"\^\{\}", "^", s)
     s = re.sub(r"\^\{([^}]+)\}", r"^{\1}", s)
@@ -510,38 +485,12 @@ def fix_latex(tex_path):
     text, n_toc = _add_table_of_contents(text)
     text = _fix_figure_placement(text)
 
-    if r"\DeclareUnicodeCharacter{03B5}" not in text:
+    if not has_unicode_preamble(text):
         text = text.replace(r"\begin{document}", _unicode_preamble())
 
-    colors = [
-        "blue",
-        "red",
-        "green",
-        "yellow",
-        "purple",
-        "gray",
-        "brown",
-        "orange",
-        "pink",
-    ]
-    for color in colors:
-        text = re.sub(
-            r"\\" + color + r"\{([^}]*)\}",
-            fr"\\textcolor{{{color}}}{{\1}}",
-            text,
-        )
-        text = re.sub(
-            r"\\" + color + r"(?![a-zA-Z])",
-            fr"\\color{{{color}}}",
-            text,
-        )
-
-    text = re.sub(r"\\empty(?![a-zA-Z])", r"\\emptyset", text)
-    text = re.sub(r"\\exist(?![a-zA-Z])", r"\\exists", text)
-
+    text = normalize_katex_in_document(text)
     text = text.replace("├", r"\vdash")
-    text = _fix_vdash_char(text)
-    text = _fix_chi_command(text)
+    text = _fix_pandoc_char_escapes(text)
 
     text = _fix_cases_environments(text)
     text = _unwrap_gather_with_environments(text)

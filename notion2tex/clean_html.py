@@ -4,6 +4,8 @@ import os
 import emoji
 import re
 
+from notion2tex.katex_latex import normalize_katex
+
 ZERO_WIDTH = ("\ufeff", "\u200b", "\u200c", "\u200d")
 
 
@@ -17,7 +19,7 @@ def _latex_from_element(element):
     """Extract LaTeX from the first KaTeX annotation in the subtree."""
     ann = element.find("annotation", encoding="application/x-tex")
     if ann:
-        return _clean_text(ann.get_text())
+        return normalize_katex(_clean_text(ann.get_text()))
     return None
 
 
@@ -71,7 +73,7 @@ def _build_heading(soup, level, parts):
 
 
 def _replace_formula(annotation):
-    latex = annotation.get_text()
+    latex = normalize_katex(_clean_text(annotation.get_text()))
 
     block_container = annotation.find_parent("figure", class_="block-equation")
     inline_container = annotation.find_parent("span", class_="equation")

@@ -38,7 +38,7 @@ pip install notion2tex
 
 Install Pandoc: https://pandoc.org/installing.html  
 
-Install TeX (includes `pdflatex`): https://www.tug.org/texlive/ (or MacTeX on macOS).
+Install TeX (includes `pdflatex`): https://www.tug.org/texlive/ (or MacTeX on macOS). A minimal TeX Live install is enough; if compilation fails on a missing `.sty` file, run `tlmgr install <package>` (e.g. `tlmgr install soul ulem float`).
 
 ### Convert
 

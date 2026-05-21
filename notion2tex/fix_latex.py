@@ -89,11 +89,24 @@ def _fix_figure_placement(text):
         "\\usepackage{cancel}\n\\usepackage{float}",
     )
     if r"\usepackage{float}" not in text:
-        text = text.replace(
-            r"\usepackage{cancel}",
-            "\\usepackage{cancel}\n\\usepackage{float}",
-            1,
-        )
+        for anchor in (
+            r"\usepackage{grffile}",
+            r"\usepackage{graphicx}",
+            r"\usepackage{bookmark}",
+        ):
+            if anchor in text:
+                text = text.replace(
+                    anchor,
+                    anchor + "\n\\usepackage{float}",
+                    1,
+                )
+                break
+        else:
+            text = text.replace(
+                r"\usepackage{cancel}",
+                "\\usepackage{cancel}\n\\usepackage{float}",
+                1,
+            )
     text = re.sub(r"\\begin\{figure\}\[[^\]]*\]", r"\\begin{figure}[H]", text)
     text = re.sub(r"\\begin\{figure\}(?!\[)", r"\\begin{figure}[H]", text)
     return text
@@ -270,6 +283,37 @@ def _fix_literal_backslash_n_in_preamble(text: str) -> str:
         r"\1\n\2",
         text,
     )
+
+
+_PANDOC_STRIKEOUT_BLOCK = re.compile(
+    r"\\ifLuaTeX\s*\n"
+    r"\s*\\usepackage\{luacolor\}\s*\n"
+    r"\s*\\usepackage\[soul\]\{lua-ul\}\s*\n"
+    r"\\else\s*\n"
+    r"\s*\\usepackage\{soul\}\s*\n"
+    r"\\fi",
+    re.MULTILINE,
+)
+
+
+def _ensure_strikeout_support(text: str) -> str:
+    """
+    Pandoc loads ``soul`` for underline/strikeout; TeX Live basic often lacks it.
+
+    Fall back to ``ulem`` (or no-op macros) so pdflatex does not stop on missing soul.sty.
+    """
+    strikeout_block = (
+        "\\ifLuaTeX\n"
+        "  \\usepackage{luacolor}\n"
+        "  \\IfFileExists{lua-ul.sty}{\\usepackage[soul]{lua-ul}}{}\n"
+        "\\else\n"
+        "  \\IfFileExists{soul.sty}{\\usepackage{soul}}{"
+        "\\IfFileExists{ulem.sty}{\\usepackage[normalem]{ulem}}{"
+        "\\providecommand{\\sout}[1]{#1}\\providecommand{\\ul}[1]{#1}}"
+        "}}\n"
+        "\\fi"
+    )
+    return _PANDOC_STRIKEOUT_BLOCK.sub(lambda _: strikeout_block, text, count=1)
 
 
 def _ensure_grffile(text: str) -> str:
@@ -616,6 +660,7 @@ def fix_latex(tex_path):
         return
 
     text = _fix_literal_backslash_n_in_preamble(text)
+    text = _ensure_strikeout_support(text)
     text = _enable_section_numbering(text)
     text = _unnumbered_cover_section(text)
     text = _enable_hyperref_links(text)

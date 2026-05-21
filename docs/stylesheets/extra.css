@@ -12,6 +12,7 @@
   --n2t-accent: #3d5c4a;
   --n2t-accent-soft: #e8efe9;
   --n2t-radius: 4px;
+  --n2t-gutter: clamp(1rem, 4vw, 1.75rem);
   --md-text-font: var(--n2t-font);
   --md-code-font: var(--n2t-mono);
 }
@@ -65,6 +66,8 @@
 
 .md-header__inner {
   max-width: 72rem;
+  padding-inline: var(--n2t-gutter);
+  box-sizing: border-box;
 }
 
 .md-header__title {
@@ -145,8 +148,10 @@
 
 .md-content__inner {
   max-width: 42rem;
-  margin: 0 auto;
-  padding-bottom: 3rem;
+  width: 100%;
+  margin-inline: auto;
+  padding: 0.6rem var(--n2t-gutter) 3rem;
+  box-sizing: border-box;
 }
 
 .md-typeset {
@@ -565,11 +570,31 @@
   text-decoration: underline;
 }
 
+/* Narrow viewports — align tab bar with content gutters */
+@media screen and (max-width: 76.234375em) {
+  .md-tabs .md-grid {
+    padding-inline: var(--n2t-gutter);
+    box-sizing: border-box;
+  }
+}
+
+@media screen and (max-width: 44.984375em) {
+  .md-content__inner > pre {
+    margin-inline: calc(-1 * var(--n2t-gutter));
+  }
+}
+
 /* Footer */
 .md-footer {
   background: var(--md-default-bg-color);
   border-top: 1px solid var(--n2t-line);
   color: var(--n2t-muted);
+}
+
+.md-footer__inner,
+.md-footer-meta__inner {
+  padding-inline: var(--n2t-gutter);
+  box-sizing: border-box;
 }
 
 .md-footer-meta {

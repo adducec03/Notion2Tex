@@ -4,6 +4,7 @@ import os
 import emoji
 import re
 
+from notion2tex.image_sizes import apply_notion_image_sizes
 from notion2tex.katex_latex import normalize_katex
 
 ZERO_WIDTH = ("\ufeff", "\u200b", "\u200c", "\u200d")
@@ -155,14 +156,18 @@ def clean_html_for_pandoc(file_input, file_output):
     tables_repaired = _repair_notion_tables(soup)
     print(f"Repaired {tables_repaired} Notion tables.")
 
-    # 3. Restore math (body + inline Notion tokens)
+    # 3. Preserve Notion image widths (style="width: Npx")
+    images_sized = apply_notion_image_sizes(soup)
+    print(f"Applied Notion image widths to {images_sized} images.")
+
+    # 4. Restore math (body + inline Notion tokens)
     formulas_found = 0
     for annotation in soup.find_all("annotation", encoding="application/x-tex"):
         if _replace_formula(annotation):
             formulas_found += 1
     print(f"Restored {formulas_found} math formulas.")
 
-    # 4. Remove SVG icons/images (break pdflatex)
+    # 5. Remove SVG icons/images (break pdflatex)
     svgs_removed = 0
     for img in soup.find_all("img"):
         if ".svg" in img.get("src", "").lower():
@@ -174,7 +179,7 @@ def clean_html_for_pandoc(file_input, file_output):
         svgs_removed += 1
     print(f"Removed {svgs_removed} SVG elements.")
 
-    # 5. Remove emojis
+    # 6. Remove emojis
     for text_node in soup.find_all(string=True):
         cleaned = emoji.replace_emoji(text_node, replace="")
         if text_node != cleaned:

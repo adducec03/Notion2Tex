@@ -1,7 +1,15 @@
 import re
 import sys
+from pathlib import Path
 
 from notion2tex.table_latex import improve_tables_in_document
+from notion2tex.image_sizes import (
+    apply_widths_to_includegraphics,
+    center_figure_images,
+    load_image_width_map,
+    neutralize_pandocbounded_scale,
+    unwrap_href_includegraphics,
+)
 from notion2tex.katex_latex import normalize_katex_in_document
 from notion2tex.unicode_map import (
     UNICODE_TEXT,
@@ -81,8 +89,9 @@ def _add_table_of_contents(text):
     if r"\setcounter{tocdepth}" not in text:
         text = text.replace(
             r"\setcounter{secnumdepth}{3}",
-            r"\setcounter{secnumdepth}{3}\n"
-            r"\setcounter{tocdepth}{3} % TOC: section, subsection, subsubsection",
+            r"\setcounter{secnumdepth}{3}"
+            + "\n"
+            + r"\setcounter{tocdepth}{3} % TOC: section, subsection, subsubsection",
             1,
         )
 
@@ -180,28 +189,90 @@ def _deescape_pandoc_latex(text):
             rf"\\textcolor{{{color}}}{{",
             text,
         )
+    # Longer commands first (avoid turning \\textbackslash includegraphics into \\in)
+    for cmd in ("includegraphics", "subseteq", "Rightarrow", "exists", "forall", "mathbb"):
+        text = re.sub(rf"\\textbackslash {cmd}\b", rf"\\{cmd}", text)
     commands = (
-        "in",
         "geq",
         "leq",
-        "subseteq",
         "cup",
         "cap",
         "empty",
-        "Rightarrow",
         "wedge",
         "aleph",
         "Sigma",
         "Gamma",
         "Delta",
-        "mathbb",
-        "exists",
-        "forall",
     )
     for cmd in commands:
         text = re.sub(rf"\\textbackslash {cmd}\b", rf"\\{cmd}", text)
     text = re.sub(r"\\textbackslash \{", r"\\{", text)
     text = re.sub(r"\\textbackslash \}", r"\\}", text)
+    return text
+
+
+def _ensure_grffile(text: str) -> str:
+    """Allow spaces and commas in image paths."""
+    if r"\usepackage{grffile}" in text:
+        return text
+    if r"\usepackage{graphicx}" in text:
+        return text.replace(
+            r"\usepackage{graphicx}",
+            r"\usepackage{graphicx}\n\\usepackage{grffile}",
+            1,
+        )
+    return text
+
+
+def _fix_figure_images(text: str, tex_path: str | Path = ".") -> str:
+    """Repair Pandoc image markup so pdfLaTeX embeds PNGs instead of broken links."""
+    text = neutralize_pandocbounded_scale(text)
+    text = re.sub(
+        r"\\in\s*cludegraphics",
+        r"\\includegraphics",
+        text,
+        flags=re.IGNORECASE,
+    )
+
+    graphics_re = (
+        r"(\\includegraphics(?:\[[^\]]*\])?\{[^{}]+\})"
+    )
+
+    def _unwrap_pandocbounded(m: re.Match[str]) -> str:
+        return m.group(1)
+
+    text = re.sub(
+        rf"\\href\{{[^{{}}]+\}}\{{\\pandocbounded\{{{graphics_re}\}}\}}",
+        _unwrap_pandocbounded,
+        text,
+    )
+    text = re.sub(
+        rf"\\pandocbounded\{{{graphics_re}\}}",
+        _unwrap_pandocbounded,
+        text,
+    )
+    text = unwrap_href_includegraphics(text)
+
+    def _quote_image_path(m: re.Match[str]) -> str:
+        opts = m.group(1) or ""
+        path = m.group(2).strip()
+        if path.startswith('"') and path.endswith('"'):
+            return m.group(0)
+        if " " in path or "," in path:
+            escaped = path.replace('"', "'")
+            return f'\\includegraphics{opts}{{"{escaped}"}}'
+        return m.group(0)
+
+    text = re.sub(
+        r"\\includegraphics(\[[^\]]*\])?\{([^{}]+)\}",
+        _quote_image_path,
+        text,
+    )
+
+    clean_html = Path(tex_path).parent / f"{Path(tex_path).stem}_clean.html"
+    widths = load_image_width_map(clean_html)
+    text = apply_widths_to_includegraphics(text, widths)
+    text = center_figure_images(text)
     return text
 
 
@@ -484,11 +555,13 @@ def fix_latex(tex_path):
     text = _enable_hyperref_links(text)
     text, n_toc = _add_table_of_contents(text)
     text = _fix_figure_placement(text)
+    text = _ensure_grffile(text)
 
     if not has_unicode_preamble(text):
         text = text.replace(r"\begin{document}", _unicode_preamble())
 
     text = normalize_katex_in_document(text)
+    text = _fix_figure_images(text, tex_path)
     text = text.replace("├", r"\vdash")
     text = _fix_pandoc_char_escapes(text)
 

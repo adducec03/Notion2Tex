@@ -22,7 +22,29 @@ def extract_zip(zip_path: str | Path, dest_dir: str | Path | None = None) -> Pat
     with zipfile.ZipFile(zip_path) as zf:
         zf.extractall(dest_dir)
 
+    _extract_nested_zips(dest_dir)
     return _notion_export_root(dest_dir)
+
+
+def _extract_nested_zips(directory: Path) -> None:
+    """
+    Notion large exports ship as ExportBlock-…-Part-N.zip inside the outer archive.
+    Extract every nested .zip until the tree contains the HTML export.
+    """
+    directory = directory.resolve()
+    while True:
+        nested = [
+            p
+            for p in directory.rglob("*.zip")
+            if p.is_file() and "__MACOSX" not in p.parts
+        ]
+        if not nested:
+            return
+        for part_zip in nested:
+            print(f"==> Extract nested ZIP: {part_zip.name}")
+            with zipfile.ZipFile(part_zip) as zf:
+                zf.extractall(part_zip.parent)
+            part_zip.unlink()
 
 
 def _notion_export_root(extract_dir: Path) -> Path:
@@ -37,12 +59,25 @@ def _notion_export_root(extract_dir: Path) -> Path:
     return extract_dir
 
 
+def _has_asset_folder(html: Path) -> bool:
+    """True if the HTML has a Notion asset directory (images, etc.)."""
+    parent = html.parent
+    stem = html.stem
+    if (parent / stem).is_dir():
+        return True
+    # Notion: "Page Title <page-id>.html" with folder "Page Title/"
+    for child in parent.iterdir():
+        if child.is_dir() and stem.startswith(child.name):
+            return True
+    return False
+
+
 def find_main_html(root: Path) -> Path:
     """
     Pick the main Notion page HTML.
 
-    Prefers an ``.html`` file that has a sibling directory with the same stem
-    (the asset folder Notion creates alongside the page).
+    Prefers the largest ``.html`` that has a matching asset folder (same stem,
+    or Notion's ``Title/`` + ``Title <id>.html`` layout).
     """
     root = root.resolve()
     html_files = sorted(root.rglob("*.html"))
@@ -50,8 +85,7 @@ def find_main_html(root: Path) -> Path:
         raise FileNotFoundError(f"No .html file found under: {root}")
 
     def rank(html: Path) -> tuple[bool, int]:
-        assets = html.parent / html.stem
-        return assets.is_dir(), html.stat().st_size
+        return _has_asset_folder(html), html.stat().st_size
 
     return max(html_files, key=rank)
 

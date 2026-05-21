@@ -67,6 +67,30 @@ def normalize_katex(latex: str) -> str:
     s = _fix_chi(s)
     s = _fix_text_and_texttt(s)
     s = _fix_frac_and_font_aliases(s)
+    s = _fix_operator_spacing(s)
+    return s
+
+
+def _fix_operator_spacing(s: str) -> str:
+    """Insert space when an operator is followed by an uppercase letter or digit (e.g. \\geqK)."""
+    ops = (
+        r"\\geq",
+        r"\\leq",
+        r"\\neq",
+        r"\\equiv",
+        r"\\rightarrow",
+        r"\\leftarrow",
+        r"\\Rightarrow",
+        r"\\Leftarrow",
+        r"\\to",
+        r"\\in",
+        r"\\notin",
+        r"\\subset",
+        r"\\supset",
+    )
+    for op in ops:
+        s = re.sub(rf"({op})([A-Z0-9])", r"\1 \2", s)
+    s = re.sub(r"\\in\s*cludegraphics", r"\\includegraphics", s, flags=re.IGNORECASE)
     return s
 
 

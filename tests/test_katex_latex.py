@@ -42,3 +42,8 @@ def test_bold_and_chi():
 
 def test_html_class_stripped():
     assert normalize_katex(r"\htmlClass{foo}{x+y}") == "x+y"
+
+
+def test_operator_spacing():
+    assert normalize_katex("|V'|≥K") == r"|V'|\geq K"
+    assert normalize_katex(r"f:\mathbb N→P") == r"f:\mathbb N\rightarrow P"

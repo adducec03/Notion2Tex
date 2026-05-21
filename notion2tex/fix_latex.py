@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 from notion2tex.table_latex import improve_tables_in_document
+from notion2tex.image_paths import fix_includegraphics_paths
 from notion2tex.image_sizes import (
     apply_widths_to_includegraphics,
     center_figure_images,
@@ -58,13 +59,15 @@ def _fix_figure_placement(text):
 
 
 def _unnumbered_cover_section(text):
-    """Keep Notion cover page unnumbered so 'Linguaggi...' becomes section 1."""
-    return re.sub(
-        r"\\section\{Automata, Languages and\s*Computing\}",
-        r"\\section*{Automata, Languages and Computing}",
-        text,
-        count=1,
-    )
+    """First numbered \\section after \\begin{document} is the Notion page title."""
+    doc = text.find(r"\begin{document}")
+    if doc == -1:
+        return text
+    m = re.search(r"(?<!\\section\*)\\section\{", text[doc:])
+    if not m:
+        return text
+    start = doc + m.start()
+    return text[:start] + r"\section*{" + text[start + len(r"\section{") :]
 
 
 def _enable_hyperref_links(text):
@@ -102,15 +105,23 @@ def _add_table_of_contents(text):
         "\\newpage\n\n"
     )
 
-    marker = r"\section{Linguaggi e Grammatiche}"
-    pos = text.find(marker)
-    if pos == -1:
-        m = re.search(r"(?<!\\section\*)\\section\{", text)
-        if not m:
-            return text, 0
-        pos = m.start()
+    pos = _toc_insertion_point(text)
+    if pos is None:
+        return text, 0
 
     return text[:pos] + toc_block + text[pos:], 1
+
+
+def _toc_insertion_point(text: str) -> int | None:
+    """
+    Place the TOC after the cover (title + properties), before the first body chapter.
+
+    The Notion page title is \\section*; the first numbered \\section is body content.
+    """
+    numbered = list(re.finditer(r"(?<!\\section\*)\\section\{", text))
+    if numbered:
+        return numbered[0].start()
+    return None
 
 
 def _unicode_preamble():
@@ -278,7 +289,10 @@ def _fix_figure_images(text: str, tex_path: str | Path = ".") -> str:
         text,
     )
 
-    clean_html = Path(tex_path).parent / f"{Path(tex_path).stem}_clean.html"
+    work_dir = Path(tex_path).parent
+    text, _ = fix_includegraphics_paths(text, work_dir)
+
+    clean_html = work_dir / f"{Path(tex_path).stem}_clean.html"
     widths = load_image_width_map(clean_html)
     text = apply_widths_to_includegraphics(text, widths)
     text = center_figure_images(text)

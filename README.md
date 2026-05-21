@@ -229,6 +229,12 @@ Usually a malformed table column spec from an older build. Re-run the full pipel
 
 The source HTML still has Notion `<div>` inside `<tbody>`. Re-run `clean_html.py` (table repair runs before math replacement).
 
+### Course properties table missing fields (username, password, …)
+
+Notion2Tex shows **every property row present in the HTML export**. During `clean HTML`, the log lists the field names found, for example: `Normalized properties table (4 fields): Sito web, Username, Password, Status`.
+
+If username/password are missing from that list, they are **not in the export file** — Notion often omits **Password**-type database properties from HTML exports. Use **Text** properties (or re-export after adding the fields and confirming they appear in the raw `.html` before converting). Then run `notion2tex` again.
+
 ### Empty or wrong table of contents
 
 Run `pdflatex` **twice**. Delete `.toc` / `.aux` first if you changed section structure.
@@ -251,4 +257,4 @@ Install a full TeX distribution (TeX Live / MacTeX). `pdflatex` needs packages s
 | First numbered section marker | `fix_latex.py` → `_add_table_of_contents()` (`marker`) |
 | Cover page title | `fix_latex.py` → `_unnumbered_cover_section()` |
 | Toggle → heading depth cap | `clean_html.py` → `h_level = min(1 + nesting_depth, 6)` |
-| Skip a table from conversion | `table_latex.py` → `improve_longtable_block()` |
+| Property tables (cover metadata) | `properties.py`, `table_latex.py` → `_rebuild_key_value_table()` |

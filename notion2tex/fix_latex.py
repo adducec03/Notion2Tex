@@ -211,6 +211,15 @@ def _deescape_pandoc_latex(text):
     return text
 
 
+def _fix_literal_backslash_n_in_preamble(text: str) -> str:
+    """Repair ``\\n`` typos in \\usepackage lines (shows as garbage on page 1)."""
+    return re.sub(
+        r"(\\usepackage\{[^}]+\})\\n(\\usepackage)",
+        r"\1\n\2",
+        text,
+    )
+
+
 def _ensure_grffile(text: str) -> str:
     """Allow spaces and commas in image paths."""
     if r"\usepackage{grffile}" in text:
@@ -218,7 +227,7 @@ def _ensure_grffile(text: str) -> str:
     if r"\usepackage{graphicx}" in text:
         return text.replace(
             r"\usepackage{graphicx}",
-            r"\usepackage{graphicx}\n\\usepackage{grffile}",
+            "\\usepackage{graphicx}\n\\usepackage{grffile}",
             1,
         )
     return text
@@ -550,6 +559,7 @@ def fix_latex(tex_path):
         print(f"Error: file not found: {tex_path}")
         return
 
+    text = _fix_literal_backslash_n_in_preamble(text)
     text = _enable_section_numbering(text)
     text = _unnumbered_cover_section(text)
     text = _enable_hyperref_links(text)

@@ -218,17 +218,60 @@ def _rebuild_table(rows):
     return "\n".join(lines)
 
 
+def _strip_label_prefix(cell):
+    """Remove empty {} left by Pandoc after Notion property icons were removed."""
+    return re.sub(r"^\{\}", "", cell.strip())
+
+
+def _is_key_value_table(rows):
+    """Notion cover properties: every row is label | value (no header row)."""
+    if not rows or not all(len(r) == 2 for r in rows):
+        return False
+    labels = [_strip_label_prefix(r[0]) for r in rows]
+    if not labels or any(not lb for lb in labels):
+        return False
+    if any(len(lb) > 120 for lb in labels):
+        return False
+    return True
+
+
+def _rebuild_key_value_table(rows):
+    """Two-column property table: all rows are data (not header + body)."""
+    if not rows:
+        return None
+    spec = (
+        r"@{} >{\raggedright\arraybackslash}p{0.34\linewidth} "
+        r">{\raggedright\arraybackslash}p{0.62\linewidth} @{}"
+    )
+    lines = [
+        r"\begin{table}[H]",
+        r"\centering",
+        r"\small",
+        rf"\begin{{tabular}}{{{spec}}}",
+        r"\toprule",
+    ]
+    for row in rows:
+        label = _strip_label_prefix(row[0])
+        value = row[1].strip()
+        if r"\shortstack" in value:
+            value = "{" + value + "}"
+        label_tex = r"\textbf{" + label + "}" if label else ""
+        lines.append(f"{label_tex} & {value} \\\\")
+    lines.extend([r"\bottomrule", r"\end{tabular}", r"\end{table}"])
+    return "\n".join(lines)
+
+
 def improve_longtable_block(block):
     env = _find_environment(block, "longtable")
     if not env:
         return block, False
-    # Skip Notion cover metadata table (website / status)
-    if re.search(r"Sito web|\\url\{", env["body"]) and "Produzioni" not in env["body"]:
-        return block, False
     rows = _extract_data_rows(env["body"])
     if len(rows) < 1:
         return block, False
-    rebuilt = _rebuild_table(rows)
+    if _is_key_value_table(rows):
+        rebuilt = _rebuild_key_value_table(rows)
+    else:
+        rebuilt = _rebuild_table(rows)
     if not rebuilt:
         return block, False
     return rebuilt, True
@@ -272,10 +315,6 @@ def improve_tables_in_document(text):
             out.append(text[idx:])
             break
         chunk = text[env["start"] : env["end"]]
-        if r"{\def\LTcaptype{none}" in text[max(0, idx - 60) : idx]:
-            out.append(chunk)
-            pos = env["end"]
-            continue
         new_chunk, ok = improve_longtable_block(chunk)
         if ok:
             count += 1

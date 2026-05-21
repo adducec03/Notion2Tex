@@ -140,8 +140,9 @@ Module reference and customization: [Development](https://adducec03.github.io/No
 
 After pushing `main` with `.github/workflows/docs.yml`:
 
-1. On GitHub: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-2. The workflow deploys MkDocs to **https://adducec03.github.io/Notion2Tex/**.
+1. On GitHub: **[Settings → Pages](https://github.com/adducec03/Notion2Tex/settings/pages)** → **Build and deployment** → **Source: GitHub Actions** (required; without this the deploy step returns 404).
+2. Re-run the workflow if the first run failed before Pages was enabled.
+3. Site URL: **https://adducec03.github.io/Notion2Tex/**
 
 Optional alternative: [Read the Docs](https://readthedocs.org/) using `.readthedocs.yaml` in the repo root.
 

@@ -86,6 +86,14 @@ mkdocs serve
 
 Production deploy: push to `main` — GitHub Actions publishes to GitHub Pages (see `.github/workflows/docs.yml`).
 
-After the first deploy, enable **Settings → Pages → Source: GitHub Actions** on the repository if prompted.
+### Enable GitHub Pages (required once)
+
+If the workflow fails with `Failed to create deployment (status: 404)`:
+
+1. Open [Settings → Pages](https://github.com/adducec03/Notion2Tex/settings/pages) on the repository.
+2. Under **Build and deployment**, set **Source** to **GitHub Actions** (not “Deploy from a branch”).
+3. Re-run the workflow: **Actions → Deploy documentation → Re-run all jobs**.
+
+The site will be at **https://adducec03.github.io/Notion2Tex/** after a successful deploy.
 
 Alternative: import the repo on [Read the Docs](https://readthedocs.org/) and point the build to `docs/requirements.txt` and `mkdocs.yml`.

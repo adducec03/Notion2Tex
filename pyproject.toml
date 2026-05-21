@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "notion2tex"
+version = "0.1.0"
+description = "Convert Notion HTML exports to PDF via a local LaTeX pipeline"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "beautifulsoup4>=4.12",
+    "emoji>=2.0",
+]
+
+[project.scripts]
+notion2tex = "notion2tex.cli:main"
+
+[project.optional-dependencies]
+dev = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["notion2tex"]

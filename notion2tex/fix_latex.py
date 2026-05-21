@@ -1,7 +1,7 @@
 import re
 import sys
 
-from table_latex import improve_tables_in_document
+from notion2tex.table_latex import improve_tables_in_document
 
 # Notion Unicode → LaTeX (hex code points)
 UNICODE_MATH = {

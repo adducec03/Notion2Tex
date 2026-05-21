@@ -1,9 +1,13 @@
 /Automata, Languages and Computing
-/__pycache__
-/automata.html
-/automata_pulito.html
-/documento_finale.aux
-/documento_finale.log
-/documento_finale.pdf
-/documento_finale.tex
-/documento_finale.toc
+/.venv/
+/__pycache__/
+/notion2tex/__pycache__/
+*.egg-info/
+/dist/
+/build/
+*.html
+*.aux
+*.log
+*.pdf
+*.tex
+*.toc

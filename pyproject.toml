@@ -4,20 +4,58 @@ build-backend = "hatchling.build"
 
 [project]
 name = "notion2tex"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Convert Notion HTML exports to PDF via a local LaTeX pipeline"
-readme = "README.md"
+readme = { file = "README.md", content-type = "text/markdown" }
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
+authors = [{ name = "Carmine Adduce" }]
+keywords = ["notion", "latex", "pdf", "pandoc", "export", "html"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Text Processing :: Markup :: LaTeX",
+    "Topic :: Utilities",
+]
 dependencies = [
     "beautifulsoup4>=4.12",
     "emoji>=2.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/adducec03/Notion2Tex"
+Documentation = "https://github.com/adducec03/Notion2Tex#readme"
+Repository = "https://github.com/adducec03/Notion2Tex"
+Issues = "https://github.com/adducec03/Notion2Tex/issues"
+Changelog = "https://github.com/adducec03/Notion2Tex/releases"
+
 [project.scripts]
 notion2tex = "notion2tex.cli:main"
 
 [project.optional-dependencies]
-dev = []
+dev = ["pytest>=8"]
+
+[tool.hatch.version]
+path = "notion2tex/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["notion2tex"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/LICENSE",
+    "/README.md",
+    "/pyproject.toml",
+    "/notion2tex",
+    "/tests",
+]

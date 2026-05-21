@@ -33,8 +33,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/adducec03/Notion2Tex"
-Documentation = "https://github.com/adducec03/Notion2Tex#readme"
+Homepage = "https://adducec03.github.io/Notion2Tex/"
+Documentation = "https://adducec03.github.io/Notion2Tex/"
 Repository = "https://github.com/adducec03/Notion2Tex"
 Issues = "https://github.com/adducec03/Notion2Tex/issues"
 Changelog = "https://github.com/adducec03/Notion2Tex/releases"
@@ -44,6 +44,7 @@ notion2tex = "notion2tex.cli:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+docs = ["mkdocs-material>=9.5"]
 
 [tool.hatch.version]
 path = "notion2tex/__init__.py"

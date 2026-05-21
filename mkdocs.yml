@@ -1,0 +1,59 @@
+site_name: Notion2Tex
+site_description: Convert Notion HTML exports to PDF via a local LaTeX pipeline
+site_url: https://adducec03.github.io/Notion2Tex/
+repo_url: https://github.com/adducec03/Notion2Tex
+repo_name: adducec03/Notion2Tex
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  language: en
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Usage: usage.md
+  - Pipeline: pipeline.md
+  - Development: development.md
+  - Troubleshooting: troubleshooting.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/adducec03/Notion2Tex
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/notion2tex/

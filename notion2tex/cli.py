@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from notion2tex import __version__
+from notion2tex.console import console
 from notion2tex.pipeline import convert, missing_tools
 
 
@@ -51,6 +52,11 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Show pdflatex/pandoc output instead of hiding it",
     )
+    parser.add_argument(
+        "--no-color",
+        action="store_true",
+        help="Disable ANSI colors in terminal output",
+    )
     return parser
 
 
@@ -58,20 +64,22 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
+    console.configure(color=not args.no_color, progress=not args.no_color)
+
     if args.check:
         missing = missing_tools()
         if missing:
-            print("Missing:", ", ".join(missing), file=sys.stderr)
+            console.error(f"Missing tools: {', '.join(missing)}")
             print(
-                "Install Pandoc: https://pandoc.org/installing.html",
+                "  Install Pandoc: https://pandoc.org/installing.html",
                 file=sys.stderr,
             )
             print(
-                "Install TeX (pdflatex): https://www.tug.org/texlive/",
+                "  Install TeX (pdflatex): https://www.tug.org/texlive/",
                 file=sys.stderr,
             )
             return 1
-        print("OK: pandoc and pdflatex are available.")
+        console.success("pandoc and pdflatex are available")
         return 0
 
     if not args.input:
@@ -87,7 +95,7 @@ def main(argv: list[str] | None = None) -> int:
             quiet=not args.verbose,
         )
     except (FileNotFoundError, RuntimeError, ValueError) as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        console.error(str(exc))
         return 1
     return 0
 

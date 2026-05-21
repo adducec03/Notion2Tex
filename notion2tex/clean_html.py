@@ -1,9 +1,11 @@
 from bs4 import BeautifulSoup, NavigableString
-import sys
 import os
+import sys
+from pathlib import Path
 import emoji
 import re
 
+from notion2tex.console import console
 from notion2tex.image_sizes import apply_notion_image_sizes
 from notion2tex.katex_latex import normalize_katex
 from notion2tex.properties import normalize_properties_table
@@ -119,13 +121,14 @@ def _repair_notion_tables(soup):
 
 
 def clean_html_for_pandoc(file_input, file_output):
-    print(f"Reading {file_input}...")
     try:
         with open(file_input, "r", encoding="utf-8") as f:
             soup = BeautifulSoup(f, "html.parser")
     except FileNotFoundError:
-        print(f"Error: file not found: '{file_input}'")
+        console.error(f"HTML not found: {file_input}")
         return
+
+    bar = console.progress(7, "Preprocessing HTML")
 
     # 1. Nested toggles → h1–h6 (before body math; headings still have KaTeX annotations)
     toggles_found = 0
@@ -148,33 +151,40 @@ def clean_html_for_pandoc(file_input, file_output):
 
     for details in all_details:
         details.unwrap()
-    print(
-        f"Converted {toggles_found} toggles to headings "
-        f"({headings_with_math} with math)."
+    bar.advance(sublabel="Toggles")
+    console.detail(
+        f"Toggles → {toggles_found} headings ({headings_with_math} with math)"
     )
 
     # 2. Normalize cover properties (all database fields present in the export)
     prop_rows, prop_labels = normalize_properties_table(soup)
+    bar.advance(sublabel="Properties")
     if prop_rows:
-        print(
-            f"Normalized properties table ({prop_rows} fields): "
-            + ", ".join(prop_labels)
+        console.detail(
+            f"Properties → {prop_rows} fields ({', '.join(prop_labels)})"
         )
 
     # 3. Repair Notion tables (before replacing math inside cells)
     tables_repaired = _repair_notion_tables(soup)
-    print(f"Repaired {tables_repaired} Notion tables.")
+    bar.advance(sublabel="Tables")
+    console.detail(f"Tables repaired → {tables_repaired}")
 
     # 4. Preserve Notion image widths (style="width: Npx")
     images_sized = apply_notion_image_sizes(soup)
-    print(f"Applied Notion image widths to {images_sized} images.")
+    bar.advance(sublabel="Images")
+    console.detail(f"Image widths preserved → {images_sized}")
 
     # 5. Restore math (body + inline Notion tokens)
+    annotations = soup.find_all("annotation", encoding="application/x-tex")
     formulas_found = 0
-    for annotation in soup.find_all("annotation", encoding="application/x-tex"):
+    math_bar = console.progress(max(1, len(annotations)), "Math formulas")
+    for annotation in annotations:
         if _replace_formula(annotation):
             formulas_found += 1
-    print(f"Restored {formulas_found} math formulas.")
+        math_bar.advance()
+    math_bar.finish(f"Math formulas ({formulas_found} restored)")
+    bar.advance(sublabel="Math")
+    console.detail(f"Math formulas restored → {formulas_found}")
 
     # 6. Remove SVG icons/images (break pdflatex)
     svgs_removed = 0
@@ -186,18 +196,21 @@ def clean_html_for_pandoc(file_input, file_output):
     for svg in soup.find_all("svg"):
         svg.decompose()
         svgs_removed += 1
-    print(f"Removed {svgs_removed} SVG elements.")
+    bar.advance(sublabel="SVG cleanup")
+    if svgs_removed:
+        console.detail(f"SVG elements removed → {svgs_removed}")
 
     # 7. Remove emojis
     for text_node in soup.find_all(string=True):
         cleaned = emoji.replace_emoji(text_node, replace="")
         if text_node != cleaned:
             text_node.replace_with(cleaned)
-    print("Emoji removal complete.")
 
     with open(file_output, "w", encoding="utf-8") as f:
         f.write(str(soup))
-    print(f"Success! Saved as: {file_output}")
+    out = Path(file_output)
+    bar.finish("Writing output")
+    console.detail(f"Wrote {out.name}")
 
 
 if __name__ == "__main__":

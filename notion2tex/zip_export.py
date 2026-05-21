@@ -5,6 +5,8 @@ from __future__ import annotations
 import zipfile
 from pathlib import Path
 
+from notion2tex.console import console
+
 
 def extract_zip(zip_path: str | Path, dest_dir: str | Path | None = None) -> Path:
     """Extract *zip_path* and return the directory used as export root."""
@@ -41,7 +43,7 @@ def _extract_nested_zips(directory: Path) -> None:
         if not nested:
             return
         for part_zip in nested:
-            print(f"==> Extract nested ZIP: {part_zip.name}")
+            console.detail(f"Extracting nested archive: {part_zip.name}")
             with zipfile.ZipFile(part_zip) as zf:
                 zf.extractall(part_zip.parent)
             part_zip.unlink()
@@ -102,10 +104,10 @@ def resolve_input(
 
     suffix = path.suffix.lower()
     if suffix == ".zip":
-        print(f"==> Extract ZIP → {extract_dir or path.with_suffix('')}")
+        dest = extract_dir or path.with_suffix("")
+        console.detail(f"Extracting {path.name} → {Path(dest).name}/")
         root = extract_zip(path, extract_dir)
         html = find_main_html(root)
-        print(f"==> Main page: {html.name}")
         return html
 
     if suffix in (".html", ".htm"):

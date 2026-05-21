@@ -9,6 +9,7 @@ from pathlib import Path
 
 from notion2tex.clean_html import clean_html_for_pandoc
 from notion2tex.cleanup import cleanup_build_artifacts
+from notion2tex.console import console
 from notion2tex.fix_latex import fix_latex
 from notion2tex.zip_export import resolve_input
 
@@ -60,6 +61,7 @@ def convert(
     *input_path* may be a Notion export ``.zip`` or a ``.html`` file.
     Outputs are written next to the HTML so relative image paths stay valid.
     """
+    input_path = Path(input_path).expanduser().resolve()
     html = resolve_input(input_path, extract_dir=extract_dir)
 
     missing = missing_tools()
@@ -79,33 +81,44 @@ def convert(
     tex = work_dir / f"{base}.tex"
     pdf = work_dir / f"{base}.pdf"
 
-    print("==> 1/4 Clean HTML")
+    total_steps = 3 if tex_only else 4
+    console.banner(input_path=str(input_path), page=html.name)
+
+    console.step(1, total_steps, "Clean HTML")
     clean_html_for_pandoc(str(html), str(clean_html))
 
-    print("==> 2/4 Pandoc → LaTeX")
-    _run(
-        ["pandoc", str(clean_html), "-f", "html", "-t", "latex", "-s", "-o", str(tex)],
-        cwd=work_dir,
-        quiet=quiet,
-    )
+    console.step(2, total_steps, "Pandoc → LaTeX")
+    with console.task("Converting HTML to LaTeX (pandoc)"):
+        _run(
+            ["pandoc", str(clean_html), "-f", "html", "-t", "latex", "-s", "-o", str(tex)],
+            cwd=work_dir,
+            quiet=quiet,
+        )
+    console.detail(f"Wrote {tex.name}")
 
-    print("==> 3/4 Fix LaTeX")
-    fix_latex(str(tex))
+    console.step(3, total_steps, "Fix LaTeX")
+    with console.task("Applying LaTeX fixes"):
+        fix_latex(str(tex))
 
     if tex_only:
         removed = cleanup_build_artifacts(work_dir, base)
         if removed:
-            print(f"Removed {len(removed)} intermediate file(s).")
-        print(f"\nDone (LaTeX only): {tex}")
+            console.detail(f"Removed {len(removed)} intermediate file(s)")
+        print()
+        console.success(f"LaTeX ready: {tex}")
         return BuildResult(html=html, tex=tex, pdf=None)
 
-    print("==> 4/4 Build PDF (2 passes)")
+    console.step(4, total_steps, "Build PDF")
     for aux in (f"{base}.aux", f"{base}.toc", f"{base}.out"):
         (work_dir / aux).unlink(missing_ok=True)
 
+    pdf_bar = console.progress(2, "pdflatex")
     last_rc = 0
-    for _ in range(2):
-        last_rc = _run_pdflatex(tex.name, cwd=work_dir, quiet=quiet)
+    for pass_num in range(1, 3):
+        with console.task(f"pdflatex pass {pass_num}/2"):
+            last_rc = _run_pdflatex(tex.name, cwd=work_dir, quiet=quiet)
+        pdf_bar.advance(sublabel=f"Pass {pass_num}/2")
+    pdf_bar.finish("PDF build")
 
     if not pdf.is_file():
         log = work_dir / f"{base}.log"
@@ -114,14 +127,15 @@ def convert(
 
     if last_rc != 0:
         log = work_dir / f"{base}.log"
-        print(
-            f"Warning: pdflatex reported errors (exit {last_rc}); "
-            f"PDF was still written. Check {log} for missing references or bad math."
+        console.warn(
+            f"pdflatex exited with code {last_rc}; PDF was written. "
+            f"Review {log.name} for warnings."
         )
 
     removed = cleanup_build_artifacts(work_dir, base)
     if removed:
-        print(f"Removed {len(removed)} intermediate file(s).")
+        console.detail(f"Removed {len(removed)} intermediate file(s)")
 
-    print(f"\nDone: {pdf}")
+    print()
+    console.success(f"PDF ready: {pdf}")
     return BuildResult(html=html, tex=tex, pdf=pdf)

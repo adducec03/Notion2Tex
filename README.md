@@ -82,6 +82,7 @@ Files are written **next to the HTML** inside the extracted export folder.
 notion2tex --help
 notion2tex Export.zip --tex-only       # LaTeX only, no pdflatex
 notion2tex Export.zip -v               # show compiler output
+notion2tex Export.zip --no-color       # plain output (no colors or progress bars)
 notion2tex Export.zip --extract-dir ./work   # custom extraction folder
 ```
 

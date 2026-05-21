@@ -551,12 +551,13 @@ def _fix_display_math_blocks(text):
 
 
 def fix_latex(tex_path):
-    print(f"Reading {tex_path}...")
+    from notion2tex.console import console
+
     try:
         with open(tex_path, "r", encoding="utf-8") as f:
             text = f.read()
     except FileNotFoundError:
-        print(f"Error: file not found: {tex_path}")
+        console.error(f"LaTeX not found: {tex_path}")
         return
 
     text = _fix_literal_backslash_n_in_preamble(text)
@@ -588,17 +589,17 @@ def fix_latex(tex_path):
     with open(tex_path, "w", encoding="utf-8") as f:
         f.write(text)
 
-    print(
-        f"Done! Applied fixes "
-        f"(gather*: {n_gather}, titles: {n_titles}, bookmarks: {n_bookmark}, "
-        f"inline math: {n_dollar}, captions removed: {n_caption}, "
-        f"tables improved: {n_tables}, TOC: {n_toc})."
-    )
+    parts = [
+        f"gather* {n_gather}",
+        f"titles {n_titles}",
+        f"bookmarks {n_bookmark}",
+        f"inline math {n_dollar}",
+        f"captions {n_caption}",
+        f"tables {n_tables}",
+    ]
     if n_toc:
-        print(
-            "Note: run pdflatex twice on the .tex file to refresh "
-            "the table of contents and page numbers."
-        )
+        parts.append("TOC added")
+    console.detail("Fixes applied → " + ", ".join(parts))
 
 
 if __name__ == "__main__":

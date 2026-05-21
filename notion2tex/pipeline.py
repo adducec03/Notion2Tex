@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from notion2tex.clean_html import clean_html_for_pandoc
+from notion2tex.cleanup import cleanup_build_artifacts
 from notion2tex.fix_latex import fix_latex
 from notion2tex.zip_export import resolve_input
 
@@ -15,7 +16,6 @@ from notion2tex.zip_export import resolve_input
 @dataclass(frozen=True)
 class BuildResult:
     html: Path
-    clean_html: Path
     tex: Path
     pdf: Path | None
 
@@ -93,8 +93,11 @@ def convert(
     fix_latex(str(tex))
 
     if tex_only:
+        removed = cleanup_build_artifacts(work_dir, base)
+        if removed:
+            print(f"Removed {len(removed)} intermediate file(s).")
         print(f"\nDone (LaTeX only): {tex}")
-        return BuildResult(html=html, clean_html=clean_html, tex=tex, pdf=None)
+        return BuildResult(html=html, tex=tex, pdf=None)
 
     print("==> 4/4 Build PDF (2 passes)")
     for aux in (f"{base}.aux", f"{base}.toc", f"{base}.out"):
@@ -116,5 +119,9 @@ def convert(
             f"PDF was still written. Check {log} for missing references or bad math."
         )
 
+    removed = cleanup_build_artifacts(work_dir, base)
+    if removed:
+        print(f"Removed {len(removed)} intermediate file(s).")
+
     print(f"\nDone: {pdf}")
-    return BuildResult(html=html, clean_html=clean_html, tex=tex, pdf=pdf)
+    return BuildResult(html=html, tex=tex, pdf=pdf)

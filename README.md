@@ -67,9 +67,12 @@ chmod +x n2t.sh   # once
 
 | File | Description |
 |------|-------------|
-| `Automata_clean.html` | Preprocessed HTML for Pandoc |
+| `Automata.html` | Original Notion export (unchanged) |
 | `Automata.tex` | LaTeX source |
 | `Automata.pdf` | Final PDF |
+| `Automata.log` | pdflatex log (if PDF was built) |
+
+Intermediate files (`_clean.html`, `.aux`, `.toc`, `.out`, …) are removed automatically after a successful run.
 
 Files are written **next to the HTML** inside the extracted export folder.
 

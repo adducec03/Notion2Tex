@@ -1,4 +1,4 @@
-# Notion HTML → PDF (LaTeX pipeline)
+# Notion2Tex
 
 [![PyPI version](https://img.shields.io/pypi/v/notion2tex.svg)](https://pypi.org/project/notion2tex/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)

@@ -1,0 +1,577 @@
+import re
+import sys
+
+from table_latex import improve_tables_in_document
+
+# Notion Unicode → LaTeX (hex code points)
+UNICODE_MATH = {
+    "03B1": r"\alpha",
+    "03B2": r"\beta",
+    "03B3": r"\gamma",
+    "03B4": r"\delta",
+    "03B5": r"\varepsilon",
+    "03BB": r"\lambda",
+    "03C9": r"\omega",
+    "0393": r"\Gamma",
+    "0394": r"\Delta",
+    "03A3": r"\Sigma",
+    "2135": r"\aleph",
+    "2208": r"\in",
+    "2217": r"\ast",
+    "2264": r"\leq",
+    "2265": r"\geq",
+    "251C": r"\vdash",
+}
+
+UNICODE_TEXT = {
+    "203E": r"\textasciimacron",
+    "02CB": r"`",
+}
+
+
+def _enable_section_numbering(text):
+    """Enable 1 / 1.1 / 1.1.1 numbering for section/subsection/subsubsection."""
+    text = re.sub(
+        r"\\setcounter\{secnumdepth\}\{[^}]+\}\s*%[^\n]*",
+        r"\\setcounter{secnumdepth}{3} % number through subsubsection",
+        text,
+        count=1,
+    )
+    numbering = r"""
+\renewcommand{\thesection}{\arabic{section}.}
+\renewcommand{\thesubsection}{\thesection\arabic{subsection}.}
+\renewcommand{\thesubsubsection}{\thesubsection\arabic{subsubsection}.}
+"""
+    if r"\renewcommand{\thesection}" not in text:
+        text = text.replace(r"\begin{document}", numbering + r"\begin{document}")
+    return text
+
+
+def _fix_figure_placement(text):
+    """
+    Pandoc uses floating figures (htbp); LaTeX moves them away from source order.
+    [H] keeps images in document order.
+    """
+    text = text.replace(
+        r"\usepackage{cancel}\n\\usepackage{float}",
+        "\\usepackage{cancel}\n\\usepackage{float}",
+    )
+    if r"\usepackage{float}" not in text:
+        text = text.replace(
+            r"\usepackage{cancel}",
+            "\\usepackage{cancel}\n\\usepackage{float}",
+            1,
+        )
+    text = re.sub(r"\\begin\{figure\}\[[^\]]*\]", r"\\begin{figure}[H]", text)
+    text = re.sub(r"\\begin\{figure\}(?!\[)", r"\\begin{figure}[H]", text)
+    return text
+
+
+def _unnumbered_cover_section(text):
+    """Keep Notion cover page unnumbered so 'Linguaggi...' becomes section 1."""
+    return re.sub(
+        r"\\section\{Automata, Languages and\s*Computing\}",
+        r"\\section*{Automata, Languages and Computing}",
+        text,
+        count=1,
+    )
+
+
+def _enable_hyperref_links(text):
+    """Visible PDF links (TOC, cross-refs, URLs)."""
+    if "colorlinks=true" in text:
+        return text
+    return text.replace(
+        "hidelinks",
+        "colorlinks=true,\n  linkcolor=blue!70!black,\n  urlcolor=blue",
+        1,
+    )
+
+
+def _add_table_of_contents(text):
+    """
+    Clickable TOC after the cover page (hyperref/bookmark).
+    Requires two pdflatex runs to refresh page numbers.
+    """
+    if r"\tableofcontents" in text:
+        return text, 0
+
+    if r"\setcounter{tocdepth}" not in text:
+        text = text.replace(
+            r"\setcounter{secnumdepth}{3}",
+            r"\setcounter{secnumdepth}{3}\n"
+            r"\setcounter{tocdepth}{3} % TOC: section, subsection, subsubsection",
+            1,
+        )
+
+    toc_block = (
+        "\n\\newpage\n"
+        "\\section*{Indice}\n"
+        "\\tableofcontents\n"
+        "\\newpage\n\n"
+    )
+
+    marker = r"\section{Linguaggi e Grammatiche}"
+    pos = text.find(marker)
+    if pos == -1:
+        m = re.search(r"(?<!\\section\*)\\section\{", text)
+        if not m:
+            return text, 0
+        pos = m.start()
+
+    return text[:pos] + toc_block + text[pos:], 1
+
+
+def _unicode_preamble():
+    lines = []
+    for code, cmd in UNICODE_MATH.items():
+        lines.append(
+            f"\\DeclareUnicodeCharacter{{{code}}}{{\\ensuremath{{{cmd}}}}}"
+        )
+    for code, cmd in UNICODE_TEXT.items():
+        lines.append(f"\\DeclareUnicodeCharacter{{{code}}}{{{cmd}}}")
+    lines.append("\\begin{document}")
+    return "\n" + "\n".join(lines) + "\n"
+
+
+def _fix_vdash_char(text):
+    """Pandoc emits \\char\"251C which breaks pdflatex (char > 255)."""
+    return re.sub(
+        r'\\char\s*"\s*251[cC]',
+        r"\\vdash",
+        text,
+        flags=re.IGNORECASE,
+    )
+
+
+def _fix_chi_command(text):
+    text = re.sub(
+        r"\\color\{red\}\\Chi\b",
+        r"\\textcolor{red}{\\textsf{X}}",
+        text,
+    )
+    return text
+
+
+def _strip_trailing_backslash(formula):
+    """Remove trailing \\\\ that break gather* environments."""
+    formula = formula.rstrip()
+    while formula.endswith("\\\\"):
+        formula = formula[:-2].rstrip()
+    return formula
+
+
+def _unwrap_gather_with_environments(text):
+    """gather* wrapping cases/array breaks compilation."""
+
+    def replace(match):
+        content = match.group(1)
+        if re.search(r"\\begin\{", content):
+            return f"\\[{content}\\]"
+        return match.group(0)
+
+    return re.sub(
+        r"\\begin\{gather\*\}(.*?)\\end\{gather\*\}",
+        replace,
+        text,
+        flags=re.DOTALL,
+    )
+
+
+def _fix_cases_environments(text):
+    """Fix alignment and blank lines in cases environments."""
+
+    def clean(match):
+        body = match.group(1)
+        body = re.sub(r"&&&", r"&", body)
+        body = re.sub(r"&&", r"&", body)
+        body = re.sub(r"\n\s*\n", "\n", body)
+        return "\\begin{cases}" + body + "\\end{cases}"
+
+    return re.sub(
+        r"\\begin\{cases\}(.*?)\\end\{cases\}",
+        clean,
+        text,
+        flags=re.DOTALL,
+    )
+
+
+def _deescape_pandoc_latex(text):
+    """Restore LaTeX commands escaped by Pandoc."""
+    text = re.sub(r"\\textbackslash text\s*\{", r"\\text{", text)
+    text = re.sub(r"\\textbackslash texttt\s*\{", r"\\texttt{", text)
+    for color in ("red", "green", "blue", "yellow", "purple", "gray"):
+        text = re.sub(
+            rf"\\textbackslash {color}\{{",
+            rf"\\textcolor{{{color}}}{{",
+            text,
+        )
+    commands = (
+        "in",
+        "geq",
+        "leq",
+        "subseteq",
+        "cup",
+        "cap",
+        "empty",
+        "Rightarrow",
+        "wedge",
+        "aleph",
+        "Sigma",
+        "Gamma",
+        "Delta",
+        "mathbb",
+        "exists",
+        "forall",
+    )
+    for cmd in commands:
+        text = re.sub(rf"\\textbackslash {cmd}\b", rf"\\{cmd}", text)
+    text = re.sub(r"\\textbackslash \{", r"\\{", text)
+    text = re.sub(r"\\textbackslash \}", r"\\}", text)
+    return text
+
+
+def _pandoc_dollars_to_latex(content):
+    """Convert \\$ ... \\$ (Pandoc) body to LaTeX math."""
+    s = content.strip()
+    s = re.sub(r"\\textbar\s*([^\\]+?)\\textbar\{\}?", r"|\1|", s)
+    s = s.replace(r"\textless", "<").replace(r"\textgreater", ">")
+    s = re.sub(r"<\s+", "<", s)
+    s = re.sub(r"\s+>", ">", s)
+    s = re.sub(r"\\textbackslash\s*,", ",", s)
+    s = re.sub(r"\\textquotesingle", "'", s)
+    s = _deescape_pandoc_latex(s)
+    s = re.sub(r"\\textbackslash\s+([A-Za-z]+)", r"\\\1", s)
+    s = s.replace(r"\_", "_")
+    s = re.sub(r"\^\{\}", "^", s)
+    s = re.sub(r"\^\{([^}]+)\}", r"^{\1}", s)
+    s = re.sub(r"\{\}", "", s)
+    return s.strip()
+
+
+def _looks_like_math(text):
+    if not text or len(text) > 200:
+        return False
+    if "\n\n" in text:
+        return False
+    if re.search(r"\\begin\{|\\end\{|\\section|\\item", text):
+        return False
+    if re.search(
+        r"\\textbackslash|\\textbar|\\_|\\text[<{]|\\Sigma|\\aleph|\^{",
+        text,
+    ):
+        return True
+    return bool(re.fullmatch(r"[\s0-9A-Za-z|+*/=<>(){}[\].,_\\^-]+", text))
+
+
+def _fix_escaped_dollar_math(text):
+    """Convert \\$ ... \\$ to \\( ... \\) for inline math."""
+    count = 0
+    pattern = re.compile(
+        r"\\\$\s*"
+        r"((?:[^\n$\\]|\\(?!begin\{|\\end\{|\\section))+?)"
+        r"\s*\\\$",
+        re.DOTALL,
+    )
+
+    def repl(match):
+        nonlocal count
+        inner = match.group(1)
+        if not _looks_like_math(inner):
+            return match.group(0)
+        latex = _pandoc_dollars_to_latex(inner)
+        count += 1
+        return f"\\({latex}\\)"
+
+    text = pattern.sub(repl, text)
+    return text, count
+
+
+def _plain_bookmark(text):
+    """ASCII-safe version for PDF bookmarks."""
+    s = text.replace("\n", " ")
+    s = re.sub(r"\\[()$]", "", s)
+    s = re.sub(r"\\text\s+", "", s)
+    s = re.sub(r"\\text\{([^}]*)\}", r"\1", s)
+    s = re.sub(r"\\texttt\{([^}]*)\}", r"\1", s)
+    s = re.sub(r"_\{([^}]*)\}", r"_\1", s)
+    s = s.replace(r"\_", "_")
+    s = re.sub(r"[_^{}\\]", "", s)
+    s = s.replace("#", "").replace("%", "")
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _read_braced_argument(text, start):
+    """Read a braced argument starting at '{'."""
+    if start >= len(text) or text[start] != "{":
+        return None, start
+    depth = 0
+    i = start
+    while i < len(text):
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start + 1 : i], i + 1
+        i += 1
+    return None, start
+
+
+def _fix_texorpdfstring_bookmarks(text):
+    """Clean the second argument of \\texorpdfstring (PDF bookmark)."""
+    marker = r"\texorpdfstring"
+    out = []
+    pos = 0
+    count = 0
+
+    while True:
+        start = text.find(marker, pos)
+        if start == -1:
+            out.append(text[pos:])
+            break
+        out.append(text[pos:start])
+        i = start + len(marker)
+        if i >= len(text) or text[i] != "{":
+            out.append(text[start:])
+            break
+        visible, i = _read_braced_argument(text, i)
+        if visible is None:
+            out.append(text[start:])
+            break
+        if i >= len(text) or text[i] != "{":
+            out.append(text[start:])
+            break
+        bookmark, i = _read_braced_argument(text, i)
+        if bookmark is None:
+            out.append(text[start:])
+            break
+        if "textbackslash" in bookmark:
+            visible = visible.replace("\n", " ").strip()
+            new_bm = _plain_bookmark(visible)
+            out.append(f"\\texorpdfstring{{{visible}}}{{{new_bm}}}")
+            count += 1
+        else:
+            out.append(text[start:i])
+        pos = i
+
+    return "".join(out), count
+
+
+def _fix_section_titles(text):
+    """
+    Fix \\section/\\subsection titles corrupted by Pandoc
+    (\\$...\\$, textbackslash, duplicates like ATM...ATM).
+    """
+    commands = r"section|subsection|subsubsection|paragraph|subparagraph"
+    pattern = re.compile(
+        rf"(\\(?:{commands})\*?)\{{(.*?)\}}",
+        re.DOTALL,
+    )
+    fixed = 0
+
+    def fix(match):
+        nonlocal fixed
+        command, title = match.group(1), match.group(2)
+        if "textbackslash" not in title and r"\$" not in title:
+            return match.group(0)
+
+        title = title.replace(r"\hspace{0pt}", "")
+        for z in ("\ufeff", "\u200b"):
+            title = title.replace(z, "")
+
+        title = _deescape_pandoc_latex(title)
+        title = " ".join(title.split())
+
+        title = re.sub(
+            r"([A-Z]{2,})\\text\{([^}]+)\}_\\text\{([^}]+)\}\1",
+            r"\\text{\2}_{\\text{\3}}",
+            title,
+        )
+        title = re.sub(
+            r"([A-Z]{2,})\\text\s+([A-Za-z])_\{\\text\{([^}]+)\}\}\1",
+            r"\\text{\2}_{\\text{\3}}",
+            title,
+        )
+
+        math_match = re.search(r"\\\$(.*?)\\\$", title)
+        if math_match:
+            math_expr = math_match.group(1).replace(r"\_", "_")
+            prefix = title[: math_match.start()].strip()
+            suffix = title[math_match.end() :].strip()
+            plain = _plain_bookmark(f"{prefix} {math_expr} {suffix}")
+            if prefix:
+                title = (
+                    f"{prefix} \\texorpdfstring{{\\({math_expr}\\)}}{{{plain}}}"
+                )
+            else:
+                title = f"\\texorpdfstring{{\\({math_expr}\\)}}{{{plain}}}"
+        elif re.search(r"\\text\{|\\texttt\{", title):
+            plain = _plain_bookmark(title)
+            title = f"\\texorpdfstring{{\\({title}\\)}}{{{plain}}}"
+
+        fixed += 1
+        return f"{command}{{{title}}}"
+
+    text = pattern.sub(fix, text)
+    return text, fixed
+
+
+def _fix_escaped_inline_math(text):
+    """Fix inline body math: \\$ \\textbackslash text ... \\$."""
+    text = re.sub(
+        r"\\\$\s*\\textbackslash text\s+([A-Za-z])\\?_\{"
+        r"\\textbackslash text\{([^}]+)\}\}\s*\\\$",
+        r"\\(\\text{\1}_{\\text{\2}}\\)",
+        text,
+        flags=re.DOTALL,
+    )
+    text = re.sub(
+        r"\\\$\s*\\textbackslash text\{([^}]+)\}"
+        r"_\\textbackslash text\{([^}]+)\}\s*\\\$",
+        r"\\(\\text{\1}_{\\text{\2}}\\)",
+        text,
+        flags=re.DOTALL,
+    )
+    return text
+
+
+def _remove_empty_captions(text):
+    """Remove empty \\caption/\\label under figures (no 'Figure N' noise)."""
+    marker = r"\caption{"
+    out = []
+    pos = 0
+    count = 0
+
+    while True:
+        start = text.find(marker, pos)
+        if start == -1:
+            out.append(text[pos:])
+            break
+        out.append(text[pos:start])
+        i = start + len(marker) - 1
+        _, i = _read_braced_argument(text, i)
+        if i >= len(text):
+            out.append(text[start:])
+            break
+        rest = text[i : i + 30]
+        if rest.lstrip().startswith(r"\label{"):
+            j = text.find(r"\label{", i)
+            _, i = _read_braced_argument(text, j)
+            count += 1
+        pos = i
+
+    text = "".join(out)
+    text, n_label = re.subn(
+        r"\s*\\label\{[^}]+\}\s*(?=\\end\{figure\})",
+        "\n",
+        text,
+    )
+    text, n_lt = re.subn(
+        r"\\caption\{[^}]*\}\\label\{[^}]+\}\s*\\tabularnewline",
+        r"\\tabularnewline",
+        text,
+    )
+    return text, count + n_label + n_lt
+
+
+def _fix_display_math_blocks(text):
+    """Convert multiline \\[...\\] to gather* only when safe."""
+
+    pattern = re.compile(r"\\\[(.*?)\\\]", re.DOTALL)
+    n_gather = 0
+
+    def fix(match):
+        nonlocal n_gather
+        formula = _strip_trailing_backslash(match.group(1))
+        if re.search(r"\\begin\{", formula):
+            return f"\\[{formula}\\]"
+        if "\\\\" in formula:
+            n_gather += 1
+            return f"\\begin{{gather*}}{formula}\\end{{gather*}}"
+        return f"\\[{formula}\\]"
+
+    text = pattern.sub(fix, text)
+    return text, n_gather
+
+
+def fix_latex(tex_path):
+    print(f"Reading {tex_path}...")
+    try:
+        with open(tex_path, "r", encoding="utf-8") as f:
+            text = f.read()
+    except FileNotFoundError:
+        print(f"Error: file not found: {tex_path}")
+        return
+
+    text = _enable_section_numbering(text)
+    text = _unnumbered_cover_section(text)
+    text = _enable_hyperref_links(text)
+    text, n_toc = _add_table_of_contents(text)
+    text = _fix_figure_placement(text)
+
+    if r"\DeclareUnicodeCharacter{03B5}" not in text:
+        text = text.replace(r"\begin{document}", _unicode_preamble())
+
+    colors = [
+        "blue",
+        "red",
+        "green",
+        "yellow",
+        "purple",
+        "gray",
+        "brown",
+        "orange",
+        "pink",
+    ]
+    for color in colors:
+        text = re.sub(
+            r"\\" + color + r"\{([^}]*)\}",
+            fr"\\textcolor{{{color}}}{{\1}}",
+            text,
+        )
+        text = re.sub(
+            r"\\" + color + r"(?![a-zA-Z])",
+            fr"\\color{{{color}}}",
+            text,
+        )
+
+    text = re.sub(r"\\empty(?![a-zA-Z])", r"\\emptyset", text)
+    text = re.sub(r"\\exist(?![a-zA-Z])", r"\\exists", text)
+
+    text = text.replace("├", r"\vdash")
+    text = _fix_vdash_char(text)
+    text = _fix_chi_command(text)
+
+    text = _fix_cases_environments(text)
+    text = _unwrap_gather_with_environments(text)
+    text, n_gather = _fix_display_math_blocks(text)
+    text, n_titles = _fix_section_titles(text)
+    text, n_bookmark = _fix_texorpdfstring_bookmarks(text)
+    text = _fix_escaped_inline_math(text)
+    text, n_dollar = _fix_escaped_dollar_math(text)
+    text, n_caption = _remove_empty_captions(text)
+    text, n_tables = improve_tables_in_document(text)
+
+    with open(tex_path, "w", encoding="utf-8") as f:
+        f.write(text)
+
+    print(
+        f"Done! Applied fixes "
+        f"(gather*: {n_gather}, titles: {n_titles}, bookmarks: {n_bookmark}, "
+        f"inline math: {n_dollar}, captions removed: {n_caption}, "
+        f"tables improved: {n_tables}, TOC: {n_toc})."
+    )
+    if n_toc:
+        print(
+            "Note: run pdflatex twice on the .tex file to refresh "
+            "the table of contents and page numbers."
+        )
+
+
+if __name__ == "__main__":
+    default_tex = "output.tex"
+    if len(sys.argv) > 1:
+        default_tex = sys.argv[1]
+
+    fix_latex(default_tex)

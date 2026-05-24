@@ -6,6 +6,8 @@ Covers Greek letters, common math operators, and symbols found in Notion/KaTeX e
 
 from __future__ import annotations
 
+import re
+
 # Lowercase Greek (U+03B1–U+03C9, plus variants)
 _GREEK_LOWER: dict[str, str] = {
     "03B1": r"\alpha",
@@ -244,3 +246,84 @@ def latex_for_codepoint(hex_code: str) -> str | None:
         return None
     key = key.zfill(4)
     return UNICODE_MATH.get(key) or UNICODE_TEXT.get(key)
+
+
+# Short operator names excluded: they are prefixes of longer commands (e.g. \\in → includegraphics).
+_GLUE_EXCLUDE = frozenset(
+    {
+        "in",
+        "to",
+        "le",
+        "ge",
+        "ne",
+        "ni",
+        "mp",
+        "pm",
+        "wr",
+        "ll",
+        "gg",
+        "mid",
+        "cap",
+        "cup",
+        "neg",
+        "land",
+        "lor",
+        "not",
+        "sim",
+        "ast",
+        "circ",
+    }
+)
+
+_GLUE_EXTRA_CMDS = (
+    r"\mu",  # micro sign (U+00B5) maps here too
+    r"\ell",
+    r"\wp",
+    r"\aleph",
+    r"\beth",
+    r"\hbar",
+    r"\imath",
+    r"\jmath",
+)
+
+
+def glued_command_names() -> frozenset[str]:
+    """Command names that must not merge with a following ASCII letter (\\mus → \\mu s)."""
+    names: set[str] = set()
+    for cmd in (
+        *_GREEK_LOWER.values(),
+        *_GREEK_UPPER.values(),
+        *_GLUE_EXTRA_CMDS,
+    ):
+        m = re.fullmatch(r"\\([a-zA-Z]+)", cmd)
+        if m and m.group(1) not in _GLUE_EXCLUDE:
+            names.add(m.group(1))
+    return frozenset(names)
+
+
+_GLUE_NAMES_SORTED: tuple[str, ...] | None = None
+
+
+def _glue_names_pattern() -> str:
+    global _GLUE_NAMES_SORTED
+    if _GLUE_NAMES_SORTED is None:
+        _GLUE_NAMES_SORTED = tuple(sorted(glued_command_names(), key=len, reverse=True))
+    return "|".join(re.escape(n) for n in _GLUE_NAMES_SORTED)
+
+
+def separate_glued_command_letters(text: str) -> str:
+    """Insert a space when a symbol command is glued to the next letter (\\mus, \\pif, …)."""
+    if not text or "\\" not in text:
+        return text
+    names = _glue_names_pattern()
+    if not names:
+        return text
+    return re.sub(rf"\\({names})(?=[A-Za-z])", r"\\\1 ", text)
+
+
+def latex_command_for_char(char: str) -> str | None:
+    """LaTeX command for a single Unicode character, if mapped."""
+    if len(char) != 1:
+        return None
+    code = format(ord(char), "04X")
+    return latex_for_codepoint(code)

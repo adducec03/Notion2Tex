@@ -8,7 +8,11 @@ from __future__ import annotations
 
 import re
 
-from notion2tex.unicode_map import UNICODE_MATH, latex_for_codepoint
+from notion2tex.unicode_map import (
+    UNICODE_MATH,
+    latex_for_codepoint,
+    separate_glued_command_letters,
+)
 
 # KaTeX color shorthands (\\red, \\green, …)
 KATEX_COLORS = (
@@ -68,6 +72,7 @@ def normalize_katex(latex: str) -> str:
     s = _fix_text_and_texttt(s)
     s = _fix_frac_and_font_aliases(s)
     s = _fix_operator_spacing(s)
+    s = separate_glued_command_letters(s)
     return s
 
 
@@ -101,8 +106,15 @@ def normalize_katex_in_document(text: str) -> str:
 
 def _replace_unicode_literals(s: str) -> str:
     for char, cmd in _UNICODE_IN_MATH.items():
-        if char in s:
-            s = s.replace(char, cmd)
+        if char not in s:
+            continue
+        # μs, πf, … — do not let the command swallow the next letter
+        s = re.sub(
+            re.escape(char) + r"(?=[A-Za-z])",
+            lambda _m, c=cmd: c + " ",
+            s,
+        )
+        s = s.replace(char, cmd)
     return s
 
 

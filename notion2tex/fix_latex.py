@@ -16,6 +16,7 @@ from notion2tex.unicode_map import (
     UNICODE_TEXT,
     has_unicode_preamble,
     latex_for_codepoint,
+    separate_glued_command_letters,
     unicode_preamble_lines,
 )
 
@@ -238,15 +239,22 @@ def _fix_pandoc_char_escapes(text):
         latex = latex_for_codepoint(hex_code)
         if latex is None:
             return match.group(0)
+        need_space = (
+            match.end() < len(text)
+            and text[match.end()].isalpha()
+            and re.fullmatch(r"\\[a-zA-Z]+", latex) is not None
+        )
+        latex_out = latex + (" " if need_space else "")
         if hex_code in UNICODE_TEXT:
-            return latex
-        return rf"\ensuremath{{{latex}}}"
+            return latex_out
+        return rf"\ensuremath{{{latex_out}}}"
 
-    return re.sub(
+    text = re.sub(
         r'\\char\s*"\s*([0-9A-Fa-f]{3,4})',
         repl,
         text,
     )
+    return separate_glued_command_letters(text)
 
 
 def _strip_trailing_backslash(formula):

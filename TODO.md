@@ -1,6 +1,13 @@
 ## TODO
 
 - [x] aggiustare intestazione e copertina
+- [ ] aggiungere copertina personalizzata
+- [ ] aggiungere modalità scura
+- [ ] aggiustare blocco quote (creare riquadro grigio)
+- [ ] aggiustare colori del testo
+- [ ] aggiungere in alto alla pagina nome del capitolo e paragrafo
+- [ ] fare in modo che un capitolo non inizi a meta pagina
+- [ ] aggiustare simbolo "->" che viene convertito in latex (vedi pag 283 probstat)
 - [x] includere tutte lettere greche e simboli
 - [x] includere tutte eccezioni da katex a latex
 - [x] eliminare file non necessari dopo l'export (html aggiuntivi, devono rimanere solo .html originale, .tex, pdf e log)

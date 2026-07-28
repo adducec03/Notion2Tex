@@ -377,7 +377,7 @@ def _ensure_strikeout_support(text: str) -> str:
         "  \\IfFileExists{soul.sty}{\\usepackage{soul}}{"
         "\\IfFileExists{ulem.sty}{\\usepackage[normalem]{ulem}}{"
         "\\providecommand{\\sout}[1]{#1}\\providecommand{\\ul}[1]{#1}}"
-        "}}\n"
+        "}\n"
         "\\fi"
     )
     return _PANDOC_STRIKEOUT_BLOCK.sub(lambda _: strikeout_block, text, count=1)

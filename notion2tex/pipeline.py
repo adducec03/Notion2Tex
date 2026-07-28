@@ -13,6 +13,8 @@ from notion2tex.console import console
 from notion2tex.fix_latex import fix_latex
 from notion2tex.zip_export import resolve_input
 
+_FORMATTING_FILTER = Path(__file__).parent / "filters" / "notion_formatting.lua"
+
 
 @dataclass(frozen=True)
 class BuildResult:
@@ -90,7 +92,18 @@ def convert(
     console.step(2, total_steps, "Pandoc → LaTeX")
     with console.task("Converting HTML to LaTeX (pandoc)"):
         _run(
-            ["pandoc", str(clean_html), "-f", "html", "-t", "latex", "-s", "-o", str(tex)],
+            [
+                "pandoc",
+                str(clean_html),
+                "-f",
+                "html",
+                "-t",
+                "latex",
+                "-s",
+                f"--lua-filter={_FORMATTING_FILTER}",
+                "-o",
+                str(tex),
+            ],
             cwd=work_dir,
             quiet=quiet,
         )

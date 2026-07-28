@@ -16,5 +16,4 @@
 - [ ] Gestione dei "Callout" e dei "Code Blocks"
 - [ ] Creare una release con un binario o Docker:
 - [ ] Template LaTeX personalizzabili (Margini della pagina, Font principale, Colore primario per i link e per i box di evidenziamento)
-- [ ] Adottare Tectonic come motore di compilazione
 - [ ] Sezione esempi

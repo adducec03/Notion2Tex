@@ -184,6 +184,102 @@ function Div(el)
   return nil
 end
 
+-- Notion's "web bookmark" block: an <a class="bookmark source"> wrapping a
+-- title/description/favicon/url panel plus a preview image. Pandoc reads
+-- the outer <a> as an empty Link (it cannot wrap block content) and hoists
+-- its actual children (the bookmark-info Div and the preview Image) up as
+-- siblings inside a Figure — so the raw output is just a link, a floating
+-- favicon and preview image, and loose title/description text, with no
+-- card layout at all. Rebuild it as a bordered two-column card, matching
+-- Notion's own bookmark CSS (thin gray border, text left, image right).
+local function find_div(blocks, class_name)
+  for _, block in ipairs(blocks) do
+    if block.t == "Div" and block.classes:includes(class_name) then
+      return block
+    end
+  end
+  return nil
+end
+
+local function find_link_target(blocks)
+  for _, block in ipairs(blocks) do
+    if block.t == "Plain" or block.t == "Para" then
+      for _, inline in ipairs(block.content) do
+        if inline.t == "Link" then
+          return inline.target
+        end
+      end
+    end
+  end
+  return nil
+end
+
+local function find_image(blocks, class_name)
+  for _, block in ipairs(blocks) do
+    if block.t == "Plain" or block.t == "Para" then
+      for _, inline in ipairs(block.content) do
+        if inline.t == "Image" and inline.classes:includes(class_name) then
+          return inline
+        end
+      end
+    elseif block.t == "Div" then
+      local found = find_image(block.content, class_name)
+      if found then
+        return found
+      end
+    end
+  end
+  return nil
+end
+
+local function render_bookmark(el, info)
+  local url = find_link_target(el.content) or ""
+  local title_latex, desc_latex = "", ""
+
+  local text_div = find_div(info.content, "bookmark-text")
+  if text_div then
+    local title_div = find_div(text_div.content, "bookmark-title")
+    local desc_div = find_div(text_div.content, "bookmark-description")
+    if title_div then
+      title_latex = pandoc.write(pandoc.Pandoc(title_div.content), "latex")
+    end
+    if desc_div then
+      desc_latex = pandoc.write(pandoc.Pandoc(desc_div.content), "latex")
+    end
+  end
+
+  local preview = find_image(el.content, "bookmark-image")
+  local text_width = preview and "0.62" or "0.94"
+
+  local text_block = "\\textbf{" .. title_latex .. "}\\\\[0.3em]\n"
+    .. "{\\small " .. desc_latex .. "}\\\\[0.5em]\n"
+    .. "{\\footnotesize\\url{" .. url .. "}}"
+
+  local parts = {
+    "\\begin{tcolorbox}[colback=white,colframe=black!25,boxrule=0.5pt,arc=2mm,",
+    "left=0.8em,right=0.8em,top=0.6em,bottom=0.6em]\n",
+    "\\noindent\\begin{minipage}[c]{", text_width, "\\linewidth}\n",
+    text_block,
+    "\n\\end{minipage}%\n",
+  }
+  if preview then
+    table.insert(parts, "\\hfill\\begin{minipage}[c]{0.30\\linewidth}\n"
+      .. "\\includegraphics[width=\\linewidth,keepaspectratio]{" .. preview.src .. "}"
+      .. "\n\\end{minipage}%\n")
+  end
+  table.insert(parts, "\\end{tcolorbox}")
+
+  return pandoc.RawBlock("latex", table.concat(parts))
+end
+
+function Figure(el)
+  local info = find_div(el.content, "bookmark-info")
+  if not info then
+    return nil
+  end
+  return render_bookmark(el, info)
+end
+
 -- Notion's quote block is a plain <blockquote>, which Pandoc already
 -- converts natively to \begin{quote}; that environment has no visual
 -- marker at all though, while Notion always shows a left border. Match it

@@ -104,11 +104,7 @@ end
 -- ~900px export content width.
 local GAP_FRAC = 0.05
 
-function Div(el)
-  if not el.classes:includes("column-list") then
-    return nil
-  end
-
+local function render_columns(el)
   local columns = {}
   for _, block in ipairs(el.content) do
     if block.t == "Div" and block.classes:includes("column") then
@@ -138,4 +134,62 @@ function Div(el)
   end
 
   return pandoc.RawBlock("latex", table.concat(parts))
+end
+
+-- Notion's callout: <aside class="...callout" data-notion-callout-icon="X"
+-- data-notion-callout-background="COLOR_background">, renamed to <div> by
+-- clean_html.py so Pandoc keeps it as a Div (it drops <aside> outright).
+-- Its children are an icon-only div and a content div; render as a rounded,
+-- colored tcolorbox with the icon prefixed to the content.
+local function is_icon_placeholder(block)
+  if block.t ~= "Div" or #block.content ~= 1 or block.content[1].t ~= "Plain" then
+    return false
+  end
+  local plain = block.content[1]
+  return #plain.content == 1
+    and plain.content[1].t == "Span"
+    and plain.content[1].classes:includes("icon")
+end
+
+local function render_callout(el)
+  local bg = el.attributes["notion-callout-background"]
+  local base = (bg and bg:match("^(.-)_background$")) or bg
+  local rgb = (base and BACKGROUND_COLORS[base]) or BACKGROUND_COLORS.gray
+  local icon = el.attributes["notion-callout-icon"] or ""
+
+  local body_blocks = {}
+  for _, block in ipairs(el.content) do
+    if not is_icon_placeholder(block) then
+      table.insert(body_blocks, block)
+    end
+  end
+  local body_latex = pandoc.write(pandoc.Pandoc(body_blocks), "latex")
+  local prefix = icon ~= "" and ("\\textbf{\\large " .. icon .. "} ") or ""
+
+  local tex = "{\\definecolor{notioncallout}{RGB}{" .. rgb .. "}\n"
+    .. "\\begin{tcolorbox}[colback=notioncallout,boxrule=0pt,arc=3mm,"
+    .. "left=0.9em,right=0.9em,top=0.6em,bottom=0.6em]\n"
+    .. prefix .. body_latex .. "\n"
+    .. "\\end{tcolorbox}}"
+  return pandoc.RawBlock("latex", tex)
+end
+
+function Div(el)
+  if el.classes:includes("column-list") then
+    return render_columns(el)
+  end
+  if el.classes:includes("callout") then
+    return render_callout(el)
+  end
+  return nil
+end
+
+-- Notion's quote block is a plain <blockquote>, which Pandoc already
+-- converts natively to \begin{quote}; that environment has no visual
+-- marker at all though, while Notion always shows a left border. Match it
+-- with framed's ready-made \begin{leftbar} (a 3pt vertical rule + padding,
+-- same as Notion's own blockquote CSS) instead of plain \quote.
+function BlockQuote(el)
+  local body_latex = pandoc.write(pandoc.Pandoc(el.content), "latex")
+  return pandoc.RawBlock("latex", "\\begin{leftbar}\n" .. body_latex .. "\n\\end{leftbar}")
 end

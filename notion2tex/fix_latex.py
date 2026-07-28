@@ -397,6 +397,19 @@ def _ensure_grffile(text: str) -> str:
     return text
 
 
+def _ensure_callout_and_quote_support(text: str) -> str:
+    """
+    tcolorbox (callouts, via the Lua filter's colored box) and framed's
+    \\leftbar (quotes, via the Lua filter) aren't loaded by Pandoc's default
+    template.
+    """
+    if r"\usepackage{tcolorbox}" not in text:
+        text = text.replace(r"\begin{document}", "\\usepackage{tcolorbox}\n\\begin{document}", 1)
+    if r"\usepackage{framed}" not in text:
+        text = text.replace(r"\begin{document}", "\\usepackage{framed}\n\\begin{document}", 1)
+    return text
+
+
 def _fix_figure_images(text: str, tex_path: str | Path = ".") -> str:
     """Repair Pandoc image markup so pdfLaTeX embeds PNGs instead of broken links."""
     text = neutralize_pandocbounded_scale(text)
@@ -745,6 +758,7 @@ def fix_latex(tex_path):
     text, n_toc = _add_table_of_contents(text)
     text = _fix_figure_placement(text)
     text = _ensure_grffile(text)
+    text = _ensure_callout_and_quote_support(text)
 
     if not has_unicode_preamble(text):
         text = text.replace(r"\begin{document}", _unicode_preamble())

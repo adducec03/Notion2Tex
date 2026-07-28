@@ -126,6 +126,63 @@ def _unnumbered_cover_section(text):
     return text[:start] + r"\section*{" + text[start + len(r"\section{") :]
 
 
+def _build_cover_page(text: str) -> str:
+    """
+    Pandoc's \\maketitle (from the HTML <title>) and the Notion page's own
+    <h1 class="page-title"> both carry the same title text, so the plain
+    pipeline renders it twice: once via \\maketitle, again as a redundant
+    \\section*{title} right after the cover image. Replace both with a
+    single designed title page: a large centered title above the cover
+    image (capped so a tall photo can't run off the page), vertically
+    balanced, no header/footer.
+
+    Falls back to leaving the text untouched if there's no cover image
+    right after \\maketitle (page has no cover photo) — the plain
+    \\maketitle + \\section* title still work, just without this polish.
+    """
+    maketitle = text.find(r"\maketitle")
+    if maketitle == -1:
+        return text
+
+    window = text[maketitle : maketitle + 400]
+    image_match = re.search(r"\\includegraphics\[[^\]]*\]\{[^{}]+\}", window)
+    if not image_match:
+        return text
+    image = image_match.group(0)
+    image_end = maketitle + image_match.end()
+
+    section_match = re.match(r"\s*\\section\*\{", text[image_end : image_end + 200])
+    if not section_match:
+        return text
+    brace_start = image_end + section_match.end() - 1
+    title, after_title = _read_braced_argument(text, brace_start)
+    if title is None:
+        return text
+
+    label_match = re.match(r"\\label\{[^{}]*\}\s*", text[after_title:])
+    end = after_title + (label_match.end() if label_match else 0)
+    label = label_match.group(0) if label_match else ""
+
+    sized_image = re.sub(
+        r"width=\\linewidth",
+        r"width=\\linewidth,height=0.55\\textheight",
+        image,
+        count=1,
+    )
+    cover = (
+        "\\thispagestyle{empty}\n"
+        "\\begin{center}\n"
+        "\\vspace*{\\fill}\n"
+        f"{{\\Huge\\bfseries {title}}}{label}\n"
+        "\\vspace{2em}\n\n"
+        f"{sized_image}\n\n"
+        "\\vfill\n"
+        "\\end{center}\n"
+        "\\clearpage\n"
+    )
+    return text[:maketitle] + cover + text[end:]
+
+
 def _enable_hyperref_links(text):
     """Visible PDF links (TOC, cross-refs, URLs)."""
     if "colorlinks=true" in text:
@@ -133,6 +190,77 @@ def _enable_hyperref_links(text):
     return text.replace(
         "hidelinks",
         "colorlinks=true,\n  linkcolor=blue!70!black,\n  urlcolor=blue",
+        1,
+    )
+
+
+_DARK_PAGE_BACKGROUND = "30,30,30"
+_DARK_BODY_TEXT = "225,225,225"
+_DARK_LINK = "88,166,255"
+
+
+def _apply_dark_theme(text: str) -> str:
+    """
+    --dark: a dark gray (not pure black) page with light text.
+
+    Call this LAST, after every other fix has run (tables, callouts, the
+    fancyhdr header/footer, ...): headers/footers and float environments
+    (\\begin{table}, \\begin{figure}) are composed by LaTeX in a separate box
+    construction that does not inherit the \\color set for the main text
+    flow — confirmed by inspecting the actual PDF content stream, where
+    those regions use the plain DeviceGray "0" (black) operator instead of
+    our RGB color, even though \\color{notiondarktext} is active everywhere
+    else. Each of those needs its own explicit \\color{} instead of relying
+    on the ambient one.
+
+    Runs after _enable_hyperref_links, so its blue-on-white link colors
+    (picked for a light page) can be swapped for something that stays
+    readable on a dark background. The Lua filter's highlight/callout/quote
+    colors are switched separately (it reads the same NOTION2TEX_DARK env
+    var the pipeline sets when --dark is passed to pandoc), and code blocks
+    get pandoc's "breezedark" syntax theme instead of the default.
+    """
+    if r"\pagecolor" in text:
+        return text
+
+    text = text.replace(
+        r"\usepackage{xcolor}",
+        "\\usepackage{xcolor}\n"
+        f"\\definecolor{{notiondarkbg}}{{RGB}}{{{_DARK_PAGE_BACKGROUND}}}\n"
+        f"\\definecolor{{notiondarktext}}{{RGB}}{{{_DARK_BODY_TEXT}}}\n"
+        f"\\definecolor{{notiondarklink}}{{RGB}}{{{_DARK_LINK}}}\n",
+        1,
+    )
+    text = text.replace(
+        "linkcolor=blue!70!black,\n  urlcolor=blue",
+        "linkcolor=notiondarklink,\n  urlcolor=notiondarklink",
+        1,
+    )
+
+    # fancyhdr composes the header/footer separately from the body text.
+    text = text.replace(
+        r"\fancyhead[C]{\rightmark}",
+        "\\fancyhead[C]{\\color{notiondarktext}\\rightmark}",
+        1,
+    )
+    text = text.replace(
+        r"\fancyfoot[C]{\thepage}",
+        "\\fancyfoot[C]{\\color{notiondarktext}\\thepage}",
+        1,
+    )
+
+    # \begin{table}/\begin{figure} are floats; same box-isolation issue.
+    text = re.sub(
+        r"\\begin\{(table|figure)\}\[H\]",
+        lambda m: m.group(0) + "\\color{notiondarktext}",
+        text,
+    )
+
+    return text.replace(
+        r"\begin{document}",
+        "\\begin{document}\n"
+        "\\pagecolor{notiondarkbg}\n"
+        "\\color{notiondarktext}\n",
         1,
     )
 
@@ -790,7 +918,7 @@ def _fix_display_math_blocks(text):
     return text, n_gather
 
 
-def fix_latex(tex_path):
+def fix_latex(tex_path, dark: bool = False):
     from notion2tex.console import console
 
     try:
@@ -817,6 +945,7 @@ def fix_latex(tex_path):
 
     text = normalize_katex_in_document(text)
     text = _fix_figure_images(text, tex_path)
+    text = _build_cover_page(text)
     text = text.replace("├", r"\vdash")
     text = _fix_pandoc_char_escapes(text)
 
@@ -830,6 +959,9 @@ def fix_latex(tex_path):
     text, n_caption = _remove_empty_captions(text)
     text, n_tables = improve_tables_in_document(text)
     text, n_toggle_items = _unwrap_paragraph_itemize(text)
+
+    if dark:
+        text = _apply_dark_theme(text)
 
     with open(tex_path, "w", encoding="utf-8") as f:
         f.write(text)

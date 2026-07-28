@@ -12,6 +12,17 @@
 -- Underline: Notion has no semantic <u> tag, it emits
 -- <span style="border-bottom:...solid"> -> \ul{} (soul), matching what
 -- Pandoc already produces natively for a real <u> tag.
+--
+-- Dark mode (--dark on the CLI): the pipeline sets NOTION2TEX_DARK=1 in
+-- pandoc's environment so this filter can pick colors that stay readable
+-- on the dark gray page fix_latex.py sets up in that case — Notion's own
+-- palette above is tuned for a white page and washes out on dark gray.
+local DARK_MODE = os.getenv("NOTION2TEX_DARK") == "1"
+-- Matches _DARK_BODY_TEXT in fix_latex.py: tcolorbox composes its content in
+-- its own box, which does not inherit the ambient \color set on the page,
+-- so callouts/bookmark cards need this set explicitly or their text comes
+-- out in LaTeX's default black — invisible on the dark page background.
+local DARK_TEXT = "225,225,225"
 
 local TEXT_COLORS = {
   gray   = "125,122,117",
@@ -25,6 +36,18 @@ local TEXT_COLORS = {
   red    = "207,81,72",
 }
 
+local DARK_TEXT_COLORS = {
+  gray   = "190,190,188",
+  brown  = "198,152,120",
+  orange = "235,151,79",
+  yellow = "224,183,88",
+  teal   = "119,199,157",
+  blue   = "109,163,224",
+  purple = "190,150,224",
+  pink   = "224,140,181",
+  red    = "224,120,110",
+}
+
 local BACKGROUND_COLORS = {
   gray   = "240,239,237",
   brown  = "245,237,233",
@@ -36,6 +59,23 @@ local BACKGROUND_COLORS = {
   pink   = "250,233,241",
   red    = "252,233,231",
 }
+
+local DARK_BACKGROUND_COLORS = {
+  gray   = "55,55,55",
+  brown  = "66,48,38",
+  orange = "77,51,25",
+  yellow = "72,60,20",
+  teal   = "26,58,45",
+  blue   = "26,52,74",
+  purple = "58,40,74",
+  pink   = "72,38,55",
+  red    = "74,36,34",
+}
+
+if DARK_MODE then
+  TEXT_COLORS = DARK_TEXT_COLORS
+  BACKGROUND_COLORS = DARK_BACKGROUND_COLORS
+end
 
 local function wrap(inlines, before, after)
   local wrapped = { pandoc.RawInline("latex", before) }
@@ -165,11 +205,14 @@ local function render_callout(el)
   end
   local body_latex = pandoc.write(pandoc.Pandoc(body_blocks), "latex")
   local prefix = icon ~= "" and ("\\textbf{\\large " .. icon .. "} ") or ""
+  -- tcolorbox composes its content separately from the page's ambient
+  -- \color (see DARK_TEXT above), so set it explicitly in dark mode.
+  local text_color = DARK_MODE and ("\\color[RGB]{" .. DARK_TEXT .. "}") or ""
 
   local tex = "{\\definecolor{notioncallout}{RGB}{" .. rgb .. "}\n"
     .. "\\begin{tcolorbox}[colback=notioncallout,boxrule=0pt,arc=3mm,"
     .. "left=0.9em,right=0.9em,top=0.6em,bottom=0.6em]\n"
-    .. prefix .. body_latex .. "\n"
+    .. text_color .. prefix .. body_latex .. "\n"
     .. "\\end{tcolorbox}}"
   return pandoc.RawBlock("latex", tex)
 end
@@ -255,9 +298,21 @@ local function render_bookmark(el, info)
     .. "{\\small " .. desc_latex .. "}\\\\[0.5em]\n"
     .. "{\\footnotesize\\url{" .. url .. "}}"
 
+  -- In dark mode, slightly lighter than the dark page background (defined
+  -- in fix_latex.py) with a light-gray border instead of near-black.
+  local preamble = DARK_MODE
+    and "{\\definecolor{notionbookmarkbg}{RGB}{45,45,45}"
+    or ""
+  local box_colors = DARK_MODE
+    and "colback=notionbookmarkbg,colframe=white!30"
+    or "colback=white,colframe=black!25"
+  -- Same tcolorbox color-isolation issue as the callout above.
+  local text_color = DARK_MODE and ("\\color[RGB]{" .. DARK_TEXT .. "}") or ""
   local parts = {
-    "\\begin{tcolorbox}[colback=white,colframe=black!25,boxrule=0.5pt,arc=2mm,",
+    preamble,
+    "\\begin{tcolorbox}[" .. box_colors .. ",boxrule=0.5pt,arc=2mm,",
     "left=0.8em,right=0.8em,top=0.6em,bottom=0.6em]\n",
+    text_color,
     "\\noindent\\begin{minipage}[c]{", text_width, "\\linewidth}\n",
     text_block,
     "\n\\end{minipage}%\n",
@@ -268,6 +323,9 @@ local function render_bookmark(el, info)
       .. "\n\\end{minipage}%\n")
   end
   table.insert(parts, "\\end{tcolorbox}")
+  if DARK_MODE then
+    table.insert(parts, "}")
+  end
 
   return pandoc.RawBlock("latex", table.concat(parts))
 end

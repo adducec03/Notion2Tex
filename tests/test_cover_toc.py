@@ -2,6 +2,7 @@ from notion2tex.fix_latex import (
     _add_roman_frontmatter_pagenumbering,
     _add_running_chapter_header,
     _add_table_of_contents,
+    _build_cover_page,
     _ensure_arabic_mainmatter_pagenumbering,
     _start_chapters_on_new_page,
     _toc_insertion_point,
@@ -96,3 +97,27 @@ def test_add_running_chapter_header():
 
     # idempotent: running it twice does not duplicate the header setup
     assert _add_running_chapter_header(out) == out
+
+
+def test_build_cover_page_merges_duplicate_title():
+    text = (
+        r"\maketitle"
+        "\n\n"
+        r"\includegraphics[width=\linewidth,keepaspectratio]{cover.jpg}"
+        "\n\n"
+        r"\section*{Test}\label{test}"
+        "\n\nrest of document"
+    )
+    out = _build_cover_page(text)
+    assert r"\maketitle" not in out
+    assert out.count("Test") == 1
+    assert r"{\Huge\bfseries Test}" in out
+    assert r"\label{test}" in out
+    assert "height=0.55\\textheight" in out
+    assert "rest of document" in out
+    assert r"\thispagestyle{empty}" in out
+
+
+def test_build_cover_page_no_cover_image_leaves_text_untouched():
+    text = r"\maketitle" "\n\n" r"\section*{Test}\label{test}" "\n\nbody"
+    assert _build_cover_page(text) == text

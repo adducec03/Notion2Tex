@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -31,11 +32,20 @@ def missing_tools() -> list[str]:
     return [cmd for cmd in required_external_tools() if shutil.which(cmd) is None]
 
 
-def _run(cmd: list[str], *, cwd: Path, quiet: bool, check: bool = True) -> int:
+def _run(
+    cmd: list[str],
+    *,
+    cwd: Path,
+    quiet: bool,
+    check: bool = True,
+    env: dict | None = None,
+) -> int:
     kwargs: dict = {"cwd": cwd, "check": check, "text": True}
     if quiet:
         kwargs["stdout"] = subprocess.DEVNULL
         kwargs["stderr"] = subprocess.DEVNULL
+    if env is not None:
+        kwargs["env"] = env
     result = subprocess.run(cmd, **kwargs)
     return result.returncode
 
@@ -56,6 +66,7 @@ def convert(
     extract_dir: Path | None = None,
     tex_only: bool = False,
     quiet: bool = True,
+    dark: bool = False,
 ) -> BuildResult:
     """
     Run clean → pandoc → fix_latex → pdflatex (×2).
@@ -90,28 +101,28 @@ def convert(
     clean_html_for_pandoc(str(html), str(clean_html))
 
     console.step(2, total_steps, "Pandoc → LaTeX")
+    pandoc_cmd = [
+        "pandoc",
+        str(clean_html),
+        "-f",
+        "html",
+        "-t",
+        "latex",
+        "-s",
+        f"--lua-filter={_FORMATTING_FILTER}",
+    ]
+    pandoc_env = None
+    if dark:
+        pandoc_cmd.append("--syntax-highlighting=breezedark")
+        pandoc_env = {**os.environ, "NOTION2TEX_DARK": "1"}
+    pandoc_cmd += ["-o", str(tex)]
     with console.task("Converting HTML to LaTeX (pandoc)"):
-        _run(
-            [
-                "pandoc",
-                str(clean_html),
-                "-f",
-                "html",
-                "-t",
-                "latex",
-                "-s",
-                f"--lua-filter={_FORMATTING_FILTER}",
-                "-o",
-                str(tex),
-            ],
-            cwd=work_dir,
-            quiet=quiet,
-        )
+        _run(pandoc_cmd, cwd=work_dir, quiet=quiet, env=pandoc_env)
     console.detail(f"Wrote {tex.name}")
 
     console.step(3, total_steps, "Fix LaTeX")
     with console.task("Applying LaTeX fixes"):
-        fix_latex(str(tex))
+        fix_latex(str(tex), dark=dark)
 
     if tex_only:
         removed = cleanup_build_artifacts(work_dir, base)

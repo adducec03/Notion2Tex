@@ -57,6 +57,11 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Disable ANSI colors in terminal output",
     )
+    parser.add_argument(
+        "--dark",
+        action="store_true",
+        help="Render the PDF in dark mode (dark gray page, light text and colors)",
+    )
     return parser
 
 
@@ -93,6 +98,7 @@ def main(argv: list[str] | None = None) -> int:
             extract_dir=extract_dir,
             tex_only=args.tex_only,
             quiet=not args.verbose,
+            dark=args.dark,
         )
     except (FileNotFoundError, RuntimeError, ValueError) as exc:
         console.error(str(exc))

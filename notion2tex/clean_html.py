@@ -178,6 +178,34 @@ def _rename_callout_asides(soup):
     return count
 
 
+def _fix_code_block_language(soup):
+    """
+    Notion marks a code block's language as <code class="language-python">.
+    Pandoc's HTML reader only applies syntax highlighting when the class is
+    the bare language name (e.g. "python"); with the "language-" prefix left
+    on, it doesn't recognize it and silently renders everything in plain,
+    uncolored text.
+
+    The wrapping <pre class="code code-wrap" data-notion-code-syntax="...">
+    also has to be stripped down to a bare <pre>: pandoc drops syntax
+    highlighting entirely (falling back to a plain \\begin{verbatim}) the
+    moment the <pre> itself carries any class or data attribute, regardless
+    of the <code> child's language class.
+    """
+    count = 0
+    for code in soup.find_all("code", class_=lambda c: c and "language-" in c):
+        classes = code.get("class", [])
+        code["class"] = [
+            cl[len("language-") :] if cl.startswith("language-") else cl
+            for cl in classes
+        ]
+        pre = code.find_parent("pre")
+        if pre is not None:
+            pre.attrs = {}
+        count += 1
+    return count
+
+
 def _unwrap_toggle_lists(soup):
     """
     Notion toggle blocks use <ul class="toggle"><li><details>…</details></li></ul>.
@@ -202,7 +230,7 @@ def clean_html_for_pandoc(file_input, file_output):
         return
 
     work_dir = Path(file_input).resolve().parent
-    bar = console.progress(9, "Preprocessing HTML")
+    bar = console.progress(10, "Preprocessing HTML")
 
     # 1. Nested toggles → h1–h6 (before body math; headings still have KaTeX annotations)
     toggles_found = 0
@@ -238,7 +266,13 @@ def clean_html_for_pandoc(file_input, file_output):
     if callouts_renamed:
         console.detail(f"Callouts preserved → {callouts_renamed}")
 
-    # 3. Normalize cover properties (all database fields present in the export)
+    # 3. Code blocks: language-X -> X so Pandoc applies syntax highlighting
+    code_blocks_fixed = _fix_code_block_language(soup)
+    bar.advance(sublabel="Code blocks")
+    if code_blocks_fixed:
+        console.detail(f"Code block languages fixed → {code_blocks_fixed}")
+
+    # 4. Normalize cover properties (all database fields present in the export)
     prop_rows, prop_labels = normalize_properties_table(soup)
     bar.advance(sublabel="Properties")
     if prop_rows:
@@ -246,24 +280,24 @@ def clean_html_for_pandoc(file_input, file_output):
             f"Properties → {prop_rows} fields ({', '.join(prop_labels)})"
         )
 
-    # 4. Repair Notion tables (before replacing math inside cells)
+    # 5. Repair Notion tables (before replacing math inside cells)
     tables_repaired = _repair_notion_tables(soup)
     bar.advance(sublabel="Tables")
     console.detail(f"Tables repaired → {tables_repaired}")
 
-    # 5. Preserve Notion image widths (style="width: Npx")
+    # 6. Preserve Notion image widths (style="width: Npx")
     images_sized = apply_notion_image_sizes(soup)
     bar.advance(sublabel="Images")
     console.detail(f"Image widths preserved → {images_sized}")
 
-    # 6. Download externally-hosted images (page cover, "image from link",
+    # 7. Download externally-hosted images (page cover, "image from link",
     # bookmark previews) so pdflatex can embed them like local assets
     images_downloaded = download_remote_images(soup, work_dir)
     bar.advance(sublabel="Remote images")
     if images_downloaded:
         console.detail(f"Remote images downloaded → {images_downloaded}")
 
-    # 7. Restore math (block equation figures + inline Notion tokens)
+    # 8. Restore math (block equation figures + inline Notion tokens)
     block_figures = soup.find_all("figure", class_=lambda c: c and "equation" in c)
     inline_tokens = soup.find_all("span", class_=lambda c: c and "equation" in c)
     formulas_found = 0
@@ -281,7 +315,7 @@ def clean_html_for_pandoc(file_input, file_output):
     bar.advance(sublabel="Math")
     console.detail(f"Math formulas restored → {formulas_found}")
 
-    # 8. Remove SVG icons/images (break pdflatex)
+    # 9. Remove SVG icons/images (break pdflatex)
     svgs_removed = 0
     for img in soup.find_all("img"):
         if ".svg" in img.get("src", "").lower():
@@ -295,7 +329,7 @@ def clean_html_for_pandoc(file_input, file_output):
     if svgs_removed:
         console.detail(f"SVG elements removed → {svgs_removed}")
 
-    # 9. Remove emojis
+    # 10. Remove emojis
     for text_node in soup.find_all(string=True):
         cleaned = emoji.replace_emoji(text_node, replace="")
         if text_node != cleaned:

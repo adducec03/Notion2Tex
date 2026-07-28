@@ -242,6 +242,42 @@ def _start_chapters_on_new_page(text: str) -> str:
     )
 
 
+def _add_running_chapter_header(text: str) -> str:
+    """
+    Book-style running header: the current chapter (\\section) name at the
+    top of every page.
+
+    Two article-class quirks need overriding, or the header is useless:
+    1. By default \\subsection (not \\section) is what updates \\rightmark,
+       so the header would show the last subsection title instead of
+       staying on the chapter name throughout.
+    2. A mark set by the sectioning command that opens a fresh page isn't
+       picked up for that same page's header (a well-known TeX/marks
+       quirk) — it only shows starting from the *next* page, so a
+       chapter's own opening page would show the *previous* chapter's name.
+    Explicitly redefining \\sectionmark (via \\markright) and blanking
+    \\subsectionmark fixes both: verified empirically, not just from the
+    kernel docs, since the exact mark semantics are notoriously fiddly.
+
+    The cover title is \\section* (unnumbered), which never touches marks,
+    so it and the TOC page (its own \\tableofcontents call marks itself as
+    "Contents") naturally show no chapter name.
+    """
+    if r"\usepackage{fancyhdr}" in text:
+        return text
+    block = (
+        "\\usepackage{fancyhdr}\n"
+        "\\pagestyle{fancy}\n"
+        "\\fancyhf{}\n"
+        "\\fancyhead[C]{\\rightmark}\n"
+        "\\fancyfoot[C]{\\thepage}\n"
+        "\\renewcommand{\\headrulewidth}{0.4pt}\n"
+        "\\renewcommand{\\sectionmark}[1]{\\markright{#1}}\n"
+        "\\renewcommand{\\subsectionmark}[1]{}\n"
+    )
+    return text.replace(r"\begin{document}", block + r"\begin{document}", 1)
+
+
 def _unicode_preamble():
     return "\n" + "\n".join(unicode_preamble_lines()) + "\n\\begin{document}\n"
 
@@ -771,6 +807,7 @@ def fix_latex(tex_path):
     text = _enable_hyperref_links(text)
     text, n_toc = _add_table_of_contents(text)
     text = _start_chapters_on_new_page(text)
+    text = _add_running_chapter_header(text)
     text = _fix_figure_placement(text)
     text = _ensure_grffile(text)
     text = _ensure_callout_and_quote_support(text)

@@ -1,5 +1,6 @@
 from notion2tex.fix_latex import (
     _add_roman_frontmatter_pagenumbering,
+    _add_running_chapter_header,
     _add_table_of_contents,
     _ensure_arabic_mainmatter_pagenumbering,
     _start_chapters_on_new_page,
@@ -81,3 +82,17 @@ def test_start_chapters_on_new_page():
     assert r"\clearpage" + "\n" + r"\section{Chapter Two}" in out
     # the cover's own \section* never gets a \clearpage in front of it
     assert r"\clearpage" + "\n" + r"\section*{Cover}" not in out
+
+
+def test_add_running_chapter_header():
+    text = "\\begin{document}\n\\section{Chapter One}\n"
+    out = _add_running_chapter_header(text)
+    assert r"\usepackage{fancyhdr}" in out
+    assert r"\pagestyle{fancy}" in out
+    assert r"\fancyhead[C]{\rightmark}" in out
+    assert r"\renewcommand{\sectionmark}[1]{\markright{#1}}" in out
+    assert r"\renewcommand{\subsectionmark}[1]{}" in out
+    assert out.index(r"\usepackage{fancyhdr}") < out.index(r"\begin{document}")
+
+    # idempotent: running it twice does not duplicate the header setup
+    assert _add_running_chapter_header(out) == out

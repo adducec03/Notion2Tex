@@ -5,8 +5,9 @@ from pathlib import Path
 from notion2tex.table_latex import improve_tables_in_document
 from notion2tex.image_paths import fix_includegraphics_paths
 from notion2tex.image_sizes import (
+    align_figure_images,
     apply_widths_to_includegraphics,
-    center_figure_images,
+    load_image_alignment_map,
     load_image_width_map,
     neutralize_pandocbounded_scale,
     unwrap_href_includegraphics,
@@ -447,7 +448,8 @@ def _fix_figure_images(text: str, tex_path: str | Path = ".") -> str:
     clean_html = work_dir / f"{Path(tex_path).stem}_clean.html"
     widths = load_image_width_map(clean_html)
     text = apply_widths_to_includegraphics(text, widths)
-    text = center_figure_images(text)
+    alignments = load_image_alignment_map(clean_html)
+    text = align_figure_images(text, alignments)
     return text
 
 

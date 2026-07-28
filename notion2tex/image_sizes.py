@@ -74,6 +74,40 @@ def load_image_width_map(clean_html_path: str | Path) -> dict[str, float]:
     return widths
 
 
+def load_image_alignment_map(clean_html_path: str | Path) -> dict[str, str]:
+    """
+    Build a lookup: image path / basename → 'left' | 'center' | 'right'.
+
+    Notion sets this as ``style="text-align:left/right"`` on the ``<figure>``
+    (no style at all means its default, center).
+    """
+    path = Path(clean_html_path)
+    if not path.is_file():
+        return {}
+
+    soup = BeautifulSoup(path.read_text(encoding="utf-8"), "html.parser")
+    alignments: dict[str, str] = {}
+
+    for figure in soup.find_all("figure", class_="image"):
+        img = figure.find("img")
+        if not img:
+            continue
+        src = unquote((img.get("src") or "").strip())
+        if not src:
+            continue
+
+        match = re.search(
+            r"text-align:\s*(left|right|center)",
+            figure.get("style", ""),
+            re.IGNORECASE,
+        )
+        align = match.group(1).lower() if match else "center"
+        alignments[src] = align
+        alignments[Path(src).name] = align
+
+    return alignments
+
+
 def _width_option_for_fraction(frac: float) -> str:
     """Map Notion width fraction to a graphicx width option."""
     if frac >= LARGE_IMAGE_FRAC_THRESHOLD:
@@ -137,19 +171,57 @@ def unwrap_href_includegraphics(text: str) -> str:
     return text
 
 
-def center_figure_images(text: str) -> str:
-    """Center all figure images (width is capped separately so nothing overflows the page)."""
-    text = re.sub(
-        r"(\\begin\{figure\}\[H\]\s*)\\raggedright\s*(?:\\noindent\s*)?",
-        r"\1\\centering\n",
-        text,
-    )
-    text = re.sub(
-        r"(\\begin\{figure\}\[H\]\s*)(?!\\centering\s)((?:\\href\{[^{}]+\}\{)?\\includegraphics)",
-        r"\1\\centering\n\2",
-        text,
-    )
-    return text
+_ALIGN_COMMANDS = {
+    "left": r"\raggedright",
+    "center": r"\centering",
+    "right": r"\raggedleft",
+}
+
+
+def align_figure_images(text: str, alignments: dict[str, str]) -> str:
+    """
+    Set each figure's alignment (\\centering / \\raggedright / \\raggedleft)
+    from how Notion actually aligned that image, instead of Pandoc's hardcoded
+    \\centering (width is capped separately so nothing overflows the page).
+    """
+    out = []
+    pos = 0
+    while True:
+        start = text.find(r"\begin{figure}", pos)
+        if start == -1:
+            out.append(text[pos:])
+            break
+        end = text.find(r"\end{figure}", start)
+        if end == -1:
+            out.append(text[pos:])
+            break
+        end += len(r"\end{figure}")
+
+        out.append(text[pos:start])
+        block = text[start:end]
+
+        graphics = re.search(r"\\includegraphics(?:\[[^\]]*\])?\{([^{}]+)\}", block)
+        align = "center"
+        if graphics:
+            raw_path = graphics.group(1).strip().strip('"')
+            align = (
+                alignments.get(raw_path)
+                or alignments.get(Path(raw_path).name)
+                or "center"
+            )
+
+        command = _ALIGN_COMMANDS[align]
+        block = re.sub(
+            r"(\\begin\{figure\}\[H\]\s*)"
+            r"(?:\\centering|\\raggedright|\\raggedleft)?\s*",
+            lambda m: m.group(1) + command + "\n",
+            block,
+            count=1,
+        )
+        out.append(block)
+        pos = end
+
+    return "".join(out)
 
 
 def neutralize_pandocbounded_scale(text: str) -> str:

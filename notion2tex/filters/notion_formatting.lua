@@ -82,7 +82,14 @@ function Span(el)
   end
 
   if not changed then
-    return el
+    -- Pandoc wraps every Span in a bare LaTeX {...} group by default. A
+    -- span we don't do anything with (e.g. highlight-default, meaning "no
+    -- color") would otherwise leave that empty group in the output; nested
+    -- inside \st{}/\ul{} (from a sibling <del>/underline wrapper), soul
+    -- cannot re-tokenize hyphenatable text across the extra group and
+    -- errors with "Reconstruction failed". Unwrap instead of passing it
+    -- through unchanged.
+    return el.content
   end
   return inlines
 end

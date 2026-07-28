@@ -93,3 +93,49 @@ function Span(el)
   end
   return inlines
 end
+
+-- Notion's side-by-side column layout: <div class="column-list"> containing
+-- one <div class="column" data-notion-column-ratio="0.xx"> per column.
+-- Pandoc has no notion of a flex/columns layout, so left alone this just
+-- flattens every column into stacked paragraphs. Rebuild it as adjacent
+-- top-aligned minipages, each sized from Notion's own ratio.
+--
+-- GAP_FRAC approximates Notion's 46px inter-column gap as a fraction of the
+-- ~900px export content width.
+local GAP_FRAC = 0.05
+
+function Div(el)
+  if not el.classes:includes("column-list") then
+    return nil
+  end
+
+  local columns = {}
+  for _, block in ipairs(el.content) do
+    if block.t == "Div" and block.classes:includes("column") then
+      table.insert(columns, block)
+    end
+  end
+
+  local n = #columns
+  if n < 2 then
+    return nil
+  end
+
+  local usable = 1 - GAP_FRAC * (n - 1)
+  local parts = { "\\noindent%\n" }
+  for i, column in ipairs(columns) do
+    local ratio = tonumber(column.attributes["notion-column-ratio"]) or (1 / n)
+    local width = ratio * usable
+    local content_latex = pandoc.write(pandoc.Pandoc(column.content), "latex")
+    table.insert(parts, string.format(
+      "\\begin{minipage}[t]{%.4f\\linewidth}\n%s\n\\end{minipage}%%\n",
+      width,
+      content_latex
+    ))
+    if i < n then
+      table.insert(parts, string.format("\\hspace{%.4f\\linewidth}%%\n", GAP_FRAC))
+    end
+  end
+
+  return pandoc.RawBlock("latex", table.concat(parts))
+end

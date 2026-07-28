@@ -20,21 +20,33 @@ Notion2Tex/
 │   ├── pipeline.py       # Full build orchestration
 │   ├── zip_export.py     # Extract Notion .zip, find main .html
 │   ├── clean_html.py     # Step 1: HTML preprocessing
-│   ├── fix_latex.py      # Step 3: LaTeX post-processing
+│   ├── remote_images.py  # Download images Notion only linked to
+│   ├── fix_latex.py      # Step 3: LaTeX post-processing (incl. dark theme)
 │   ├── table_latex.py    # Table conversion (used by fix_latex)
 │   ├── image_paths.py    # Resolve paths, AVIF → PNG
-│   ├── image_sizes.py    # Preserve image dimensions from HTML
+│   ├── image_sizes.py    # Preserve image dimensions/alignment from HTML
 │   ├── properties.py     # Cover metadata table
 │   ├── katex_latex.py    # KaTeX → LaTeX math fixes
 │   ├── unicode_map.py    # Unicode symbol replacements
 │   ├── cleanup.py        # Remove intermediate files
-│   └── console.py        # Terminal UI (colors, progress)
+│   ├── console.py        # Terminal UI (colors, progress)
+│   └── filters/
+│       └── notion_formatting.lua   # Pandoc Lua filter (see below)
 ├── tests/
 ├── docs/                 # MkDocs documentation (this site)
+├── Dockerfile            # Containerized build (see DOCKER.md)
 ├── n2t.sh                # Optional shell wrapper
 ├── mkdocs.yml
 └── pyproject.toml
 ```
+
+### The Lua filter (`notion2tex/filters/notion_formatting.lua`)
+
+Pandoc's LaTeX writer has no built-in handling for several Notion constructs (inline color/highlight, underline, multi-column layout, callouts, bookmark cards) — it keeps the information in its AST (visible via `pandoc -t native`) but silently drops it when writing LaTeX. The filter intercepts the relevant AST nodes (`Span`, `Div`, `Figure`, `BlockQuote`) and emits raw LaTeX (`\textcolor`, `\hl`, `minipage`, `tcolorbox`, `leftbar`) instead.
+
+It reads a `NOTION2TEX_DARK` environment variable — set by `pipeline.py` when `--dark` is passed — to pick a color palette tuned for a dark background instead of Notion's own light-theme colors.
+
+If you add a new Notion block type that needs special LaTeX handling, this filter is almost always the right place: it runs with full access to the Pandoc AST, and can call `pandoc.write()` to recursively render nested content (used by the column/callout/bookmark renderers).
 
 ## Running tests
 
@@ -65,9 +77,13 @@ fix_latex("page.tex")
 |------|------------------|
 | TOC depth (section levels) | `fix_latex.py` → `_add_table_of_contents()` (`tocdepth`) |
 | First numbered section marker | `fix_latex.py` → `_add_table_of_contents()` (`marker`) |
-| Cover page title | `fix_latex.py` → `_unnumbered_cover_section()` |
+| Cover page layout / title page | `fix_latex.py` → `_build_cover_page()` |
+| Running chapter header | `fix_latex.py` → `_add_running_chapter_header()` |
 | Toggle → heading depth cap | `clean_html.py` → `h_level = min(1 + nesting_depth, 6)` |
 | Property tables (cover metadata) | `properties.py`, `table_latex.py` |
+| Colored/highlighted text, columns, callouts, quotes, bookmark cards | `filters/notion_formatting.lua` |
+| Dark mode palette | `filters/notion_formatting.lua` (`DARK_TEXT_COLORS`, `DARK_BACKGROUND_COLORS`) and `fix_latex.py` (`_apply_dark_theme`, `_DARK_*` constants) |
+| Remote image download timeout/behavior | `remote_images.py` |
 
 ## Publishing to PyPI
 

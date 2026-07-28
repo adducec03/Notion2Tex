@@ -4,7 +4,7 @@
 
 # Turn Notion exports into print-ready PDFs
 
-Course notes, wikis, and long-form pages — with math, nested toggles, tables, and images — become a single **PDF** you can read offline or send to print.
+Course notes, wikis, and long-form pages — with math, nested toggles, tables, images, colored text, and callouts — become a single **PDF** you can read offline or send to print.
 
 Notion2Tex is a small command-line tool that fixes what generic converters miss, then builds the document with **Pandoc** and **LaTeX** on your computer.
 
@@ -19,7 +19,8 @@ Notion2Tex is a small command-line tool that fixes what generic converters miss,
 
 Notion2Tex does not use cloud APIs, accounts, or upload steps. You export HTML from Notion, run the tool locally, and get a PDF next to your files.
 
-- **No network calls** during conversion — only your shell, Pandoc, and `pdflatex`
+- **Nothing is uploaded** — conversion runs entirely on your machine with your shell, Pandoc, and `pdflatex`
+- **The only outbound requests** are to download images Notion itself only linked to (page covers, "image from link" blocks, bookmark previews) — never your page content
 - **No telemetry** or analytics in the CLI
 - **You keep the source** — the original HTML export stays untouched; outputs are `.tex`, `.pdf`, and optional `.log`
 
@@ -53,7 +54,15 @@ KaTeX formulas and `simple-table` blocks are cleaned before Pandoc runs, then fi
 
 **Images & cover**
 
-Relative image paths are resolved from the export folder. Database properties can appear on an unnumbered cover page.
+Image paths, sizes, and left/center/right alignment carry over as Notion set them — including images Notion only linked to (covers, "image from link", bookmark previews), downloaded automatically. A single designed title page replaces the duplicated default title.
+
+</div>
+
+<div class="n2t-feature" markdown="1">
+
+**Formatting & dark mode**
+
+Colored/highlighted text, underline, strikethrough, multi-column layouts, callouts, quotes, and syntax-highlighted code all carry over from Notion. Add `--dark` for a dark gray page with matching adjusted colors.
 
 </div>
 

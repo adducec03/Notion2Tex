@@ -5,10 +5,10 @@
 | Tool | Purpose |
 |------|---------|
 | **Python 3.10+** | CLI and HTML/LaTeX processing |
-| **Pandoc 3.x** | HTML → LaTeX |
-| **pdflatex** (TeX Live or MacTeX) | PDF build |
+| **Pandoc 3.x** | HTML → LaTeX — needs to be **fairly recent** (see below) |
+| **pdflatex** (TeX Live or MacTeX) | PDF build, with `tcolorbox`, `framed`, `soul`/`ulem`, `lmodern` |
 
-Notion2Tex does **not** bundle Pandoc or TeX. Install them separately on your system.
+Notion2Tex does **not** bundle Pandoc or TeX. Install them separately on your system, or use the [Docker image](#docker-alternative) below, which pins known-good versions of both.
 
 ### Pandoc
 
@@ -19,6 +19,9 @@ Verify:
 ```bash
 pandoc --version
 ```
+
+!!! warning "Use a recent Pandoc, not your Linux distro's packaged one"
+    The pipeline relies on a Lua filter and MathML-based math handling that need a **recent** Pandoc build. Debian/Ubuntu's `apt install pandoc` can lag far behind upstream and will silently drop colored text, underline, columns, callouts, or math — with no error, just missing formatting. Install directly from [pandoc.org](https://pandoc.org/installing.html) (or GitHub Releases) instead of the distro package if you hit this.
 
 ### TeX (pdflatex)
 
@@ -33,10 +36,25 @@ pdflatex --version
 If compilation fails with a missing `.sty` file, install the package with TeX Live Manager, for example:
 
 ```bash
-tlmgr install soul ulem float booktabs tabularx hyperref
+tlmgr install soul ulem float booktabs tabularx hyperref tcolorbox framed
 ```
 
-Notion2Tex tries `soul` for strikethrough, then `ulem`, then disables strikeout if neither is available.
+Notion2Tex tries `soul` for strikethrough/underline, then `ulem`, then disables strikeout if neither is available. Callouts, quotes, and web-bookmark cards additionally need `tcolorbox` and `framed`.
+
+!!! note "Debian/Ubuntu package split"
+    On Debian-based systems, `soul`/`ulem` ship in the `texlive-plain-generic` package rather than `texlive-latex-extra` — install it explicitly if `tlmgr` isn't available (`apt install texlive-plain-generic`).
+
+## Docker alternative
+
+No local Pandoc/TeX install needed — the bundled `Dockerfile` builds an image with a pinned, known-good Pandoc release and a full TeX toolchain:
+
+```bash
+docker build -t notion2tex:latest .
+docker compose run notion2tex --check
+docker compose run notion2tex Export.zip
+```
+
+See [DOCKER.md](https://github.com/adducec03/Notion2Tex/blob/main/DOCKER.md) in the repository for volume mounts and more examples.
 
 ## Install from PyPI
 

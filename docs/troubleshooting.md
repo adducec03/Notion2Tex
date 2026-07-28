@@ -43,10 +43,32 @@ Run `pdflatex` **twice**. Delete `.toc` / `.aux` first if you changed section st
 Install a full TeX distribution (TeX Live / MacTeX). Common packages:
 
 ```bash
-tlmgr install soul ulem float booktabs tabularx hyperref
+tlmgr install soul ulem float booktabs tabularx hyperref tcolorbox framed lmodern
 ```
 
-Notion2Tex falls back when `soul` is missing; some Pandoc outputs still need `float`, `booktabs`, or `tabularx`.
+Notion2Tex falls back when `soul`/`ulem` are missing (strikethrough/underline become plain text); `tcolorbox` and `framed` are required for callouts, quotes, and bookmark cards and have no fallback. On Debian/Ubuntu, `soul`/`ulem` ship in `texlive-plain-generic`, not `texlive-latex-extra` — see [Installation](installation.md).
+
+## Colored text, highlights, underline, columns, or callouts are missing/plain in the PDF
+
+Almost always an **old Pandoc**. Pandoc's writer has no built-in support for these — Notion2Tex re-injects them via a bundled Lua filter, but only a fairly recent Pandoc build runs it correctly. Check:
+
+```bash
+pandoc --version
+```
+
+If it's more than a year or two old (common with `apt install pandoc` on Debian/Ubuntu), install a current release from [pandoc.org](https://pandoc.org/installing.html), or use the Docker image, which pins a known-good version.
+
+## Code blocks are not syntax-highlighted
+
+Pandoc only colors a code block when the `<code>` tag's class is the bare language name (`python`, not `language-python`) **and** the wrapping `<pre>` has no class or data attributes of its own — Notion's export has both, so this is fixed automatically in `clean_html.py`. If it's still plain after upgrading, check that the language Notion assigned is one Pandoc recognizes (`pandoc --list-highlight-languages`); an unrecognized language silently renders as plain text (no error).
+
+## Linked/external images are missing or show a broken box with a URL
+
+Page covers, "image from link" blocks, and web-bookmark previews are not embedded in the export — Notion only stores a URL. Notion2Tex downloads them during conversion (look for `Remote images downloaded → N` in the log) and stores them in a `notion2tex_downloads/` folder next to the HTML. If a download fails (network unavailable, broken URL, non-image response), that one image is omitted cleanly rather than breaking the build — check the log for `Could not download image, omitting: <url>` and verify the URL still resolves in a browser.
+
+## `--dark` output has low-contrast or invisible text somewhere
+
+If a specific block still shows dark text on the dark page, it's most likely a construct not yet covered by the dark-mode color fixes (LaTeX floats, boxes, and headers/footers are typeset separately from the main text and don't automatically inherit the page's text color — see [Pipeline](pipeline.md)). Report it on [GitHub Issues](https://github.com/adducec03/Notion2Tex/issues) with the block type (table, callout, quote, etc.) so it can be added.
 
 ## `Missing tools: pandoc` or `pdflatex`
 

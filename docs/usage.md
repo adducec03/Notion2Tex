@@ -53,6 +53,31 @@ notion2tex Export.zip --tex-only      # LaTeX only, no pdflatex
 notion2tex Export.zip -v              # show compiler output
 notion2tex Export.zip --no-color      # plain terminal output
 notion2tex Export.zip --extract-dir ./work
+notion2tex Export.zip --dark          # dark gray page, light text/colors
+```
+
+## Formatting fidelity
+
+The pipeline preserves most of Notion's own formatting rather than falling back to plain text:
+
+| Notion feature | Result in PDF |
+|-----------------|---------------|
+| Colored / highlighted text | `\textcolor{}`/highlight background, matching Notion's palette |
+| Underline, strikethrough | Rendered via `soul` |
+| Multi-column layout | Side-by-side columns, sized from Notion's own ratios |
+| Callout blocks | Rounded, colored box (icon dropped — pdfLaTeX has no color-emoji glyphs) |
+| Quote blocks | Left border, matching Notion's own quote style |
+| Web bookmark blocks | Bordered card with title, description, link, and preview image |
+| Code blocks | Syntax-highlighted by language (falls back to plain text for unrecognized languages) |
+| Image alignment | Left / center / right, as set in Notion |
+| Images linked, not embedded (page cover, "image from link", bookmark previews) | Downloaded once and embedded; omitted cleanly if unreachable |
+
+### Dark mode
+
+`--dark` renders the PDF on a dark gray page (not pure black) with light text, adjusted link/highlight colors, and a dark syntax theme for code — instead of Notion's own light-mode palette, which would have poor contrast on a dark background.
+
+```bash
+notion2tex Export.zip --dark
 ```
 
 ## Manual build (LaTeX only)

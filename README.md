@@ -6,7 +6,7 @@
 
 Convert a **Notion HTML export** into a printable **PDF** with correct heading hierarchy, math, tables, images, and a clickable table of contents.
 
-Designed for large course notes exported from Notion with KaTeX formulas, nested toggles, and `simple-table` blocks.
+Designed for large course notes exported from Notion with KaTeX formulas, nested toggles, and `simple-table` blocks — and faithful to Notion's own formatting: colored/highlighted text, underline/strikethrough, multi-column layouts, callout and quote blocks, syntax-highlighted code, image alignment, and an optional **dark mode** (`--dark`).
 
 **Full documentation:** [adducec03.github.io/Notion2Tex](https://adducec03.github.io/Notion2Tex/) · [PyPI](https://pypi.org/project/notion2tex/)
 
@@ -19,10 +19,12 @@ Designed for large course notes exported from Notion with KaTeX formulas, nested
 | Tool | Purpose |
 |------|---------|
 | **Python 3.10+** | CLI and HTML/LaTeX processing |
-| **Pandoc 3.x** | HTML → LaTeX |
-| **pdflatex** (TeX Live or MacTeX) | PDF build |
+| **Pandoc 3.x** | HTML → LaTeX (a recent version matters — see note below) |
+| **pdflatex** (TeX Live or MacTeX) | PDF build, with `tcolorbox`, `framed`, `soul`/`ulem`, `lmodern` |
 
-All processing runs **on your machine** — nothing is uploaded.
+> **Pandoc version:** the pipeline relies on a Lua filter and MathML-based math handling that only work correctly on **fairly recent Pandoc builds**. Debian/Ubuntu's packaged `pandoc` can be much older and will silently drop formatting or math; if you hit that, install a current release directly from [pandoc.org](https://pandoc.org/installing.html) or use the Docker image below, which always pins a known-good version.
+
+Only your shell, Pandoc, and `pdflatex` run during conversion — the pipeline makes **no outbound network calls** except to download images that Notion itself only linked to (page covers, "image from link" blocks, bookmark previews); everything else stays on your machine.
 
 ### Install
 
@@ -33,7 +35,17 @@ notion2tex --check          # verify pandoc + pdflatex
 
 Install Pandoc: https://pandoc.org/installing.html  
 
-Install TeX (includes `pdflatex`): https://www.tug.org/texlive/ (or MacTeX on macOS). A minimal TeX Live install is enough; if compilation fails on a missing `.sty` file, run `tlmgr install <package>` (e.g. `tlmgr install soul ulem float`).
+Install TeX (includes `pdflatex`): https://www.tug.org/texlive/ (or MacTeX on macOS). A minimal TeX Live install is enough; if compilation fails on a missing `.sty` file, run `tlmgr install <package>` (e.g. `tlmgr install soul ulem float tcolorbox framed`).
+
+### Install with Docker (no local Pandoc/TeX needed)
+
+```bash
+docker build -t notion2tex:latest .
+docker compose run notion2tex --check
+docker compose run notion2tex Export.zip
+```
+
+The image bundles a pinned, known-good Pandoc release plus a full TeX toolchain. See [DOCKER.md](DOCKER.md) for volume mounts and more examples.
 
 **Development install** (clone + editable):
 
@@ -65,6 +77,7 @@ notion2tex --help
 notion2tex Export.zip --tex-only       # LaTeX only, no pdflatex
 notion2tex Export.zip -v               # show compiler output
 notion2tex Export.zip --no-color       # plain output
+notion2tex Export.zip --dark           # dark gray page, light text/colors
 ```
 
 See [Usage](https://adducec03.github.io/Notion2Tex/usage/) and [Troubleshooting](https://adducec03.github.io/Notion2Tex/troubleshooting/) on the docs site.
@@ -95,7 +108,7 @@ flowchart LR
   A[Notion export .zip] --> Z[Extract ZIP]
   Z --> B[clean_html.py]
   B --> C["*_clean.html"]
-  C --> D[Pandoc]
+  C --> D["Pandoc + Lua filter"]
   D --> E["*.tex"]
   E --> F[fix_latex.py]
   F --> G[table_latex.py]
@@ -104,9 +117,9 @@ flowchart LR
   I --> J["*.pdf"]
 ```
 
-1. **clean_html** — Notion HTML fixes (toggles, tables, math, properties).
-2. **Pandoc** — HTML → LaTeX.
-3. **fix_latex** — TOC, cover, figures, tables, math, page numbering.
+1. **clean_html** — Notion HTML fixes (toggles, tables, math, properties, callouts, code languages) and downloads any image Notion only linked to (cover, "image from link", bookmark previews).
+2. **Pandoc + Lua filter** — HTML → LaTeX; a bundled Lua filter (`notion_formatting.lua`) rebuilds columns, callouts, quotes, and bookmark cards, and re-injects colored/highlighted/underlined text that Pandoc's writer otherwise drops.
+3. **fix_latex** — TOC, cover page, figures, tables, math, page numbering, chapter page breaks, running chapter header, dark theme (`--dark`).
 4. **pdflatex** (×2) — PDF + table of contents.
 
 Details: [Pipeline](https://adducec03.github.io/Notion2Tex/pipeline/).
@@ -126,8 +139,10 @@ Details: [Pipeline](https://adducec03.github.io/Notion2Tex/pipeline/).
 ```
 Notion2Tex/
 ├── notion2tex/       # Python package (CLI + pipeline)
+│   └── filters/      # Pandoc Lua filter (formatting, columns, callouts...)
 ├── tests/
 ├── docs/             # MkDocs source → GitHub Pages
+├── Dockerfile        # Optional containerized build (see DOCKER.md)
 ├── n2t.sh            # Optional shell wrapper
 └── pyproject.toml
 ```

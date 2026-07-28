@@ -82,6 +82,12 @@ docker-compose run notion2tex Export.zip --tex-only
 docker-compose run notion2tex Export.zip -v
 ```
 
+### Dark mode
+
+```bash
+docker-compose run notion2tex Export.zip --dark
+```
+
 ### Display help
 
 ```bash
@@ -138,7 +144,11 @@ Run with `-v` to see pdflatex output:
 docker-compose run notion2tex Export.zip -v
 ```
 
-Missing LaTeX packages can be added to the Dockerfile's `texlive-latex-extra` section.
+Missing LaTeX packages can be added to the Dockerfile's `apt-get install` list. Note that `soul`/`ulem` (strikethrough/underline) and `lmodern` come from separate Debian packages (`texlive-plain-generic`, `lmodern`), not `texlive-latex-extra` — if you trim the package list, keep those explicitly or those features silently stop rendering.
+
+### Colored text, columns, callouts, or math are missing/plain in the PDF
+
+The Dockerfile installs Pandoc directly from a pinned GitHub release (`PANDOC_VERSION` build arg, currently `3.10.1`) instead of Debian's packaged `pandoc`, because that packaged version is too old to run the Lua filter and MathML-based math handling this pipeline relies on. If you changed the Dockerfile to use `apt install pandoc` instead, that's almost certainly why formatting is missing — revert to the GitHub-release install, or bump `PANDOC_VERSION` to a newer release if needed.
 
 ## Image Size Optimization
 
@@ -161,6 +171,8 @@ texlive-latex-minimal \
 # texlive-latex-base \
 # tlmgr install <package>
 ```
+
+`tcolorbox` and `framed` (callouts, quotes, bookmark cards) and `soul`/`ulem` (strikethrough/underline, from `texlive-plain-generic`) currently ride along with `texlive-latex-extra`/`texlive-plain-generic` — if you trim to `texlive-latex-minimal`, add those back explicitly or those features silently stop rendering.
 
 ## Docker Compose Services
 

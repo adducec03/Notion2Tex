@@ -2,6 +2,7 @@ from notion2tex.fix_latex import (
     _add_roman_frontmatter_pagenumbering,
     _add_table_of_contents,
     _ensure_arabic_mainmatter_pagenumbering,
+    _start_chapters_on_new_page,
     _toc_insertion_point,
     _unnumbered_cover_section,
 )
@@ -64,3 +65,19 @@ def test_inserts_toc_with_page_numbering():
     assert r"\section*{Indice}" in text
     assert r"\pagenumbering{arabic}" in text
     assert text.index(r"\pagenumbering{arabic}") < text.index(r"\section{Body}")
+
+
+def test_start_chapters_on_new_page():
+    text = (
+        r"\section*{Cover}"
+        "\ntext\n"
+        r"\section{Chapter One}"
+        "\nmore text\n"
+        r"\section{Chapter Two}"
+    )
+    out = _start_chapters_on_new_page(text)
+    assert out.count(r"\clearpage") == 2
+    assert r"\clearpage" + "\n" + r"\section{Chapter One}" in out
+    assert r"\clearpage" + "\n" + r"\section{Chapter Two}" in out
+    # the cover's own \section* never gets a \clearpage in front of it
+    assert r"\clearpage" + "\n" + r"\section*{Cover}" not in out

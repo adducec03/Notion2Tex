@@ -228,6 +228,20 @@ def _toc_insertion_point(text: str) -> int | None:
     return None
 
 
+def _start_chapters_on_new_page(text: str) -> str:
+    """
+    Each top-level chapter (\\section, the cover title excluded since it's
+    already \\section*) starts on its own page instead of wherever it falls
+    mid-page. The first chapter already gets one from the TOC block's own
+    trailing \\newpage; \\clearpage there is a harmless no-op.
+    """
+    return re.sub(
+        r"(?<!\\section\*)\\section\{",
+        lambda m: "\\clearpage\n" + m.group(0),
+        text,
+    )
+
+
 def _unicode_preamble():
     return "\n" + "\n".join(unicode_preamble_lines()) + "\n\\begin{document}\n"
 
@@ -756,6 +770,7 @@ def fix_latex(tex_path):
     text = _unnumbered_cover_section(text)
     text = _enable_hyperref_links(text)
     text, n_toc = _add_table_of_contents(text)
+    text = _start_chapters_on_new_page(text)
     text = _fix_figure_placement(text)
     text = _ensure_grffile(text)
     text = _ensure_callout_and_quote_support(text)

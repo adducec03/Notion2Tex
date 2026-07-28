@@ -125,10 +125,10 @@ def fix_includegraphics_paths(text: str, work_dir: Path) -> tuple[str, int]:
         raw = m.group(2).strip().strip('"')
         resolved = pdflatex_graphics_path(work_dir, raw)
         if not resolved:
-            suffix = Path(raw.split("/")[-1]).suffix.lower()
-            if suffix in _CONVERT_SUFFIXES:
-                return omit_includegraphics_line()
-            return m.group(0)
+            # No matching local file (deleted asset, or a remote image whose
+            # download failed): leaving the path as-is guarantees a pdflatex
+            # "File not found" error, so omit it instead.
+            return omit_includegraphics_line()
         if (
             resolved != raw
             or _normalize_apostrophes(resolved)

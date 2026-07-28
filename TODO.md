@@ -10,3 +10,4 @@
 - [ ] Creare una release con un binario o Docker:
 - [ ] Template LaTeX personalizzabili (Margini della pagina, Font principale, Colore primario per i link e per i box di evidenziamento)
 - [ ] Sezione esempi
+- [ ] Aggiornare documentazione

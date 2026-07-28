@@ -1,5 +1,7 @@
 """Tests for includegraphics / image path fixes."""
 
+from pathlib import Path
+
 from notion2tex.fix_latex import _deescape_pandoc_latex, _fix_figure_images
 
 
@@ -10,14 +12,25 @@ def test_deescape_includegraphics_not_split():
     assert r"\in cludegraphics" not in out
 
 
-def test_fix_broken_includegraphics_and_href():
+def test_fix_broken_includegraphics_and_href(tmp_path: Path):
+    asset_dir = tmp_path / "Automata, Languages and Computing"
+    asset_dir.mkdir()
+    (asset_dir / "Screenshot_2025.png").write_bytes(b"")
+
     tex = (
         r'\href{foo\%20bar.png}{\pandocbounded{\in cludegraphics[keepaspectratio]'
         r'{Automata, Languages and Computing/Screenshot_2025.png}}}'
     )
-    out = _fix_figure_images(tex, "page.tex")
+    out = _fix_figure_images(tex, tmp_path / "page.tex")
     assert r"\href" not in out
     assert "includegraphics" in out
     assert "width=" in out
     assert "Automata, Languages and Computing/Screenshot_2025.png" in out
     assert "in cludegraphics" not in out
+
+
+def test_fix_figure_images_omits_unresolvable_path(tmp_path: Path):
+    tex = r"\includegraphics[keepaspectratio]{missing/photo.png}"
+    out = _fix_figure_images(tex, tmp_path / "page.tex")
+    assert r"\includegraphics" not in out
+    assert "image omitted" in out

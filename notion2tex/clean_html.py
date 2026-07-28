@@ -10,6 +10,7 @@ from notion2tex.console import console
 from notion2tex.image_sizes import apply_notion_image_sizes
 from notion2tex.katex_latex import normalize_katex
 from notion2tex.properties import normalize_properties_table
+from notion2tex.remote_images import download_remote_images
 
 ZERO_WIDTH = ("\ufeff", "\u200b", "\u200c", "\u200d")
 
@@ -200,7 +201,8 @@ def clean_html_for_pandoc(file_input, file_output):
         console.error(f"HTML not found: {file_input}")
         return
 
-    bar = console.progress(8, "Preprocessing HTML")
+    work_dir = Path(file_input).resolve().parent
+    bar = console.progress(9, "Preprocessing HTML")
 
     # 1. Nested toggles → h1–h6 (before body math; headings still have KaTeX annotations)
     toggles_found = 0
@@ -254,7 +256,14 @@ def clean_html_for_pandoc(file_input, file_output):
     bar.advance(sublabel="Images")
     console.detail(f"Image widths preserved → {images_sized}")
 
-    # 6. Restore math (block equation figures + inline Notion tokens)
+    # 6. Download externally-hosted images (page cover, "image from link",
+    # bookmark previews) so pdflatex can embed them like local assets
+    images_downloaded = download_remote_images(soup, work_dir)
+    bar.advance(sublabel="Remote images")
+    if images_downloaded:
+        console.detail(f"Remote images downloaded → {images_downloaded}")
+
+    # 7. Restore math (block equation figures + inline Notion tokens)
     block_figures = soup.find_all("figure", class_=lambda c: c and "equation" in c)
     inline_tokens = soup.find_all("span", class_=lambda c: c and "equation" in c)
     formulas_found = 0
@@ -272,7 +281,7 @@ def clean_html_for_pandoc(file_input, file_output):
     bar.advance(sublabel="Math")
     console.detail(f"Math formulas restored → {formulas_found}")
 
-    # 7. Remove SVG icons/images (break pdflatex)
+    # 8. Remove SVG icons/images (break pdflatex)
     svgs_removed = 0
     for img in soup.find_all("img"):
         if ".svg" in img.get("src", "").lower():
@@ -286,7 +295,7 @@ def clean_html_for_pandoc(file_input, file_output):
     if svgs_removed:
         console.detail(f"SVG elements removed → {svgs_removed}")
 
-    # 8. Remove emojis
+    # 9. Remove emojis
     for text_node in soup.find_all(string=True):
         cleaned = emoji.replace_emoji(text_node, replace="")
         if text_node != cleaned:

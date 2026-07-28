@@ -455,6 +455,7 @@ def _pandoc_dollars_to_latex(content):
     """Convert \\$ ... \\$ (Pandoc) body to LaTeX math."""
     s = content.strip()
     s = re.sub(r"\\textbar\s*([^\\]+?)\\textbar\{\}?", r"|\1|", s)
+    s = s.replace(r"\textbar", "|")
     s = s.replace(r"\textless", "<").replace(r"\textgreater", ">")
     s = re.sub(r"<\s+", "<", s)
     s = re.sub(r"\s+>", ">", s)
@@ -462,6 +463,11 @@ def _pandoc_dollars_to_latex(content):
     s = re.sub(r"\\textquotesingle", "'", s)
     s = _deescape_pandoc_latex(s)
     s = re.sub(r"\\textbackslash\s+([A-Za-z]+)", r"\\\1", s)
+    # Literal "^" and "{"/"}" typed as prose (not a real Notion equation) are
+    # escaped by Pandoc as the text-mode accent \^{} and literal \{ \}; once
+    # this span is math, un-escape them so ^ acts as the superscript operator.
+    s = s.replace(r"\^{}", "^")
+    s = re.sub(r"\\([{}])", r"\1", s)
     s = normalize_katex_in_document(s)
     s = s.replace(r"\_", "_")
     s = re.sub(r"\^\{\}", "^", s)
@@ -486,12 +492,15 @@ def _looks_like_math(text):
 
 
 def _fix_escaped_dollar_math(text):
-    """Convert \\$ ... \\$ to \\( ... \\) for inline math."""
+    """
+    Convert \\$ ... \\$ (or \\$\\$ ... \\$\\$, from literal $$ pseudo-math in prose)
+    to \\( ... \\) for inline math.
+    """
     count = 0
     pattern = re.compile(
-        r"\\\$\s*"
+        r"\\\$\\?\$?\s*"
         r"((?:[^\n$\\]|\\(?!begin\{|\\end\{|\\section))+?)"
-        r"\s*\\\$",
+        r"\s*\\\$\\?\$?",
         re.DOTALL,
     )
 

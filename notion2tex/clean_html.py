@@ -1,4 +1,5 @@
 from bs4 import BeautifulSoup, NavigableString
+import html
 import os
 import sys
 from pathlib import Path
@@ -19,8 +20,27 @@ def _clean_text(text):
     return text.strip()
 
 
+_EQUATION_ATTRS = ("data-notion-equation", "data-notion-inline-equation")
+
+
 def _latex_from_element(element):
-    """Extract LaTeX from the first KaTeX annotation in the subtree."""
+    """
+    LaTeX for an element that IS itself a Notion equation container/token.
+
+    Current Notion exports store the raw LaTeX source directly on the
+    container in a ``data-notion-equation`` / ``data-notion-inline-equation``
+    attribute (checked on the element itself, not its subtree: a heading can
+    mix plain text with a nested equation token, e.g. "Numerabilità di
+    <equation>", and searching descendants would wrongly find the equation
+    and collapse the whole heading to math, dropping the surrounding text).
+
+    Older exports instead embed a KaTeX ``<annotation>`` somewhere inside the
+    element's own rendering subtree; kept as a fallback for those.
+    """
+    for attr in _EQUATION_ATTRS:
+        if element.has_attr(attr):
+            return normalize_katex(_clean_text(element[attr]))
+
     ann = element.find("annotation", encoding="application/x-tex")
     if ann:
         return normalize_katex(_clean_text(ann.get_text()))
@@ -51,14 +71,32 @@ def _heading_parts(element):
     return parts
 
 
-def _inline_mathml(latex):
-    """Minimal MathML so Pandoc converts titles to \\texorpdfstring{...}{...}."""
+def _mathml(latex, *, display_block=False):
+    """
+    Minimal MathML wrapping a KaTeX/LaTeX annotation.
+
+    Pandoc's HTML reader turns this into real inline math (\\(...\\)) or,
+    with ``display="block"``, real display math (\\[...\\]) — as opposed to
+    inserting raw "$"/"$$" text, which Pandoc does not recognize as math
+    delimiters and would instead escape as literal characters.
+
+    The LaTeX is HTML-escaped: it is re-parsed as HTML immediately below
+    (BeautifulSoup(...)), so a literal "<" or ">" in the formula (e.g. a
+    tuple like <x_1,...,x_n> or a "<"/">" comparison) would otherwise be
+    read as a tag and silently truncate the annotation.
+    """
+    attr = ' display="block"' if display_block else ""
+    escaped = html.escape(latex, quote=False)
     return (
-        '<math xmlns="http://www.w3.org/1998/Math/MathML">'
+        f'<math xmlns="http://www.w3.org/1998/Math/MathML"{attr}>'
         "<semantics><mrow></mrow>"
-        f'<annotation encoding="application/x-tex">{latex}</annotation>'
+        f'<annotation encoding="application/x-tex">{escaped}</annotation>'
         "</semantics></math>"
     )
+
+
+def _inline_mathml(latex):
+    return _mathml(latex)
 
 
 def _build_heading(soup, level, parts):
@@ -76,29 +114,26 @@ def _build_heading(soup, level, parts):
     return tag
 
 
-def _replace_formula(annotation):
-    latex = normalize_katex(_clean_text(annotation.get_text()))
+def _replace_block_equation(figure):
+    """Replace a Notion equation figure (block math) with display MathML."""
+    latex = _latex_from_element(figure)
+    if not latex:
+        return False
+    if "\\\\" in latex:
+        latex = f"\\begin{{gathered}}\n{latex}\n\\end{{gathered}}"
+    mathml = BeautifulSoup(_mathml(latex, display_block=True), "html.parser")
+    figure.replace_with(mathml)
+    return True
 
-    block_container = annotation.find_parent("figure", class_="block-equation")
-    inline_container = annotation.find_parent("span", class_="equation")
-    notion_token = annotation.find_parent(class_="notion-text-equation-token")
 
-    if block_container:
-        if "\\\\" in latex:
-            block_container.replace_with(
-                f"$$ \\begin{{gathered}}\n{latex}\n\\end{{gathered}} $$"
-            )
-        else:
-            block_container.replace_with(f"$$ {latex} $$")
-        return True
+def _replace_inline_equation(container):
+    """Replace a Notion inline equation token/span with inline MathML."""
+    latex = _latex_from_element(container)
+    if not latex:
+        return False
     mathml = BeautifulSoup(_inline_mathml(latex), "html.parser")
-    if inline_container:
-        inline_container.replace_with(mathml)
-        return True
-    if notion_token:
-        notion_token.replace_with(mathml)
-        return True
-    return False
+    container.replace_with(mathml)
+    return True
 
 
 def _repair_notion_tables(soup):
@@ -191,12 +226,18 @@ def clean_html_for_pandoc(file_input, file_output):
     bar.advance(sublabel="Images")
     console.detail(f"Image widths preserved → {images_sized}")
 
-    # 5. Restore math (body + inline Notion tokens)
-    annotations = soup.find_all("annotation", encoding="application/x-tex")
+    # 5. Restore math (block equation figures + inline Notion tokens)
+    block_figures = soup.find_all("figure", class_=lambda c: c and "equation" in c)
+    inline_tokens = soup.find_all("span", class_=lambda c: c and "equation" in c)
     formulas_found = 0
-    math_bar = console.progress(max(1, len(annotations)), "Math formulas")
-    for annotation in annotations:
-        if _replace_formula(annotation):
+    total = len(block_figures) + len(inline_tokens)
+    math_bar = console.progress(max(1, total), "Math formulas")
+    for figure in block_figures:
+        if _replace_block_equation(figure):
+            formulas_found += 1
+        math_bar.advance()
+    for token in inline_tokens:
+        if _replace_inline_equation(token):
             formulas_found += 1
         math_bar.advance()
     math_bar.finish(f"Math formulas ({formulas_found} restored)")

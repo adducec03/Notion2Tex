@@ -6,12 +6,12 @@ from notion2tex.unicode_map import separate_glued_command_letters
 
 
 def test_microseconds_unicode_literal():
-    assert normalize_katex("125 μs") == r"125 \mu s"
+    assert normalize_katex("125 μs") == r"125 \ensuremath{\mu} s"
 
 
 def test_pi_glued_to_variable():
-    assert normalize_katex("2πf") == r"2\pi f"
-    assert normalize_katex(r"cos(2πf_ct)") == r"cos(2\pi f_ct)"
+    assert normalize_katex("2πf") == r"2\ensuremath{\pi} f"
+    assert normalize_katex(r"cos(2πf_ct)") == r"cos(2\ensuremath{\pi} f_ct)"
 
 
 def test_pandoc_char_escape_glued():

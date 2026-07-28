@@ -31,8 +31,8 @@ def test_text_unbraced():
 
 
 def test_unicode_and_arrows():
-    assert normalize_katex("n ≥ 0") == r"n \geq 0"
-    assert normalize_katex("S→ S+S") == r"S\rightarrow S+S"
+    assert normalize_katex("n ≥ 0") == r"n \ensuremath{\geq} 0"
+    assert normalize_katex("S→ S+S") == r"S\ensuremath{\rightarrow} S+S"
 
 
 def test_bold_and_chi():
@@ -45,5 +45,5 @@ def test_html_class_stripped():
 
 
 def test_operator_spacing():
-    assert normalize_katex("|V'|≥K") == r"|V'|\geq K"
-    assert normalize_katex(r"f:\mathbb N→P") == r"f:\mathbb N\rightarrow P"
+    assert normalize_katex("|V'|≥K") == r"|V'|\ensuremath{\geq} K"
+    assert normalize_katex(r"f:\mathbb N→P") == r"f:\mathbb N\ensuremath{\rightarrow} P"

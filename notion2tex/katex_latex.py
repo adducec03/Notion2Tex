@@ -105,16 +105,28 @@ def normalize_katex_in_document(text: str) -> str:
 
 
 def _replace_unicode_literals(s: str) -> str:
+    """
+    Replace a raw KaTeX unicode char with its LaTeX command, wrapped in
+    \\ensuremath.
+
+    \\ensuremath checks the *actual* mode at typesetting time, so it is safe
+    no matter where the surrounding text ends up: real math, plain prose, or
+    a \\text{...} span nested inside otherwise-real math (KaTeX annotations
+    commonly mix in \\text{} for plain-English asides, and a raw unicode
+    symbol there — e.g. the degree sign as \\circ — must not leak a bare
+    math-only superscript into that nested text-mode span).
+    """
     for char, cmd in _UNICODE_IN_MATH.items():
         if char not in s:
             continue
+        replacement = rf"\ensuremath{{{cmd}}}"
         # μs, πf, … — do not let the command swallow the next letter
         s = re.sub(
             re.escape(char) + r"(?=[A-Za-z])",
-            lambda _m, c=cmd: c + " ",
+            lambda _m, r=replacement: r + " ",
             s,
         )
-        s = s.replace(char, cmd)
+        s = s.replace(char, replacement)
     return s
 
 

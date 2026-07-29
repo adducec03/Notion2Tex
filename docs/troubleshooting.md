@@ -20,13 +20,13 @@ Usually a malformed table column spec from an older build. Re-run the full pipel
 
 The source HTML still has Notion `<div>` inside `<tbody>`. Re-run the pipeline from the original export ZIP so `clean_html.py` can repair tables.
 
-## Course properties table missing fields
+## The cover properties table (site, username, password, ...) doesn't appear in the PDF
 
-Notion2Tex shows **every property row present in the HTML export**. During cleaning, the log lists field names found, for example:
+That's intentional: `clean_html.py` removes Notion's properties table entirely before Pandoc runs, since that metadata (site/username/password/status database fields shown under the cover) isn't meant to end up in the printed document. The log records what was stripped, for example:
 
-`Normalized properties table (4 fields): Sito web, Username, Password, Status`
+`Properties table removed → 4 fields (Sito web, Username, Password, Status)`
 
-If username/password are missing from that list, they are **not in the export file**. Notion often omits **Password**-type database properties from HTML exports. Use **Text** properties, re-export, and confirm the fields appear in the raw `.html` before converting.
+There is currently no option to keep it — open a GitHub issue if you need it back.
 
 ## Empty or wrong table of contents
 

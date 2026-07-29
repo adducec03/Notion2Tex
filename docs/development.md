@@ -25,7 +25,7 @@ Notion2Tex/
 │   ├── table_latex.py    # Table conversion (used by fix_latex)
 │   ├── image_paths.py    # Resolve paths, AVIF → PNG
 │   ├── image_sizes.py    # Preserve image dimensions/alignment from HTML
-│   ├── properties.py     # Cover metadata table
+│   ├── properties.py     # Strips the cover properties table
 │   ├── katex_latex.py    # KaTeX → LaTeX math fixes
 │   ├── unicode_map.py    # Unicode symbol replacements
 │   ├── cleanup.py        # Remove intermediate files
@@ -80,7 +80,7 @@ fix_latex("page.tex")
 | Cover page layout / title page | `fix_latex.py` → `_build_cover_page()` |
 | Running chapter header | `fix_latex.py` → `_add_running_chapter_header()` |
 | Toggle → heading depth cap | `clean_html.py` → `h_level = min(1 + nesting_depth, 6)` |
-| Property tables (cover metadata) | `properties.py`, `table_latex.py` |
+| Cover properties table (currently always removed) | `properties.py` |
 | Colored/highlighted text, columns, callouts, quotes, bookmark cards | `filters/notion_formatting.lua` |
 | Dark mode palette | `filters/notion_formatting.lua` (`DARK_TEXT_COLORS`, `DARK_BACKGROUND_COLORS`) and `fix_latex.py` (`_apply_dark_theme`, `_DARK_*` constants) |
 | Remote image download timeout/behavior | `remote_images.py` |

@@ -30,6 +30,7 @@ def test_apply_dark_theme():
         "  urlcolor=blue}\n"
         "\\fancyhead[C]{\\rightmark}\n"
         "\\fancyfoot[C]{\\thepage}\n"
+        "\\renewcommand{\\headrulewidth}{0.4pt}\n"
         "\\begin{document}\n"
         "\\maketitle\n"
         "\\begin{table}[H]\n\\end{table}\n"
@@ -50,6 +51,12 @@ def test_apply_dark_theme():
     # floats (table/figure) are boxed separately too
     assert r"\begin{table}[H]\color{notiondarktext}" in out
     assert r"\begin{figure}[H]\color{notiondarktext}" in out
+
+    # \headrule is its own \hrule box, drawn outside \fancyhead's color scope
+    assert r"\renewcommand{\headrule}{{\color{notiondarktext}" in out
+
+    # the TOC's \@dottedtocline hardcodes \normalcolor around the page number
+    assert r"\renewcommand{\normalcolor}{\color{notiondarktext}}" in out
 
     # idempotent: running it twice does not duplicate the setup
     assert _apply_dark_theme(out) == out

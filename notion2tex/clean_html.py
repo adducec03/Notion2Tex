@@ -272,12 +272,13 @@ def clean_html_for_pandoc(file_input, file_output):
     if code_blocks_fixed:
         console.detail(f"Code block languages fixed → {code_blocks_fixed}")
 
-    # 4. Normalize cover properties (all database fields present in the export)
+    # 4. Remove the cover properties table (site/username/password/... —
+    # not meant to appear in the generated PDF)
     prop_rows, prop_labels = normalize_properties_table(soup)
     bar.advance(sublabel="Properties")
     if prop_rows:
         console.detail(
-            f"Properties → {prop_rows} fields ({', '.join(prop_labels)})"
+            f"Properties table removed → {prop_rows} fields ({', '.join(prop_labels)})"
         )
 
     # 5. Repair Notion tables (before replacing math inside cells)

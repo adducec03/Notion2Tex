@@ -8,7 +8,7 @@
 4. Do not rename or move files inside the export before converting; paths in the HTML are relative to the `.html` file.
 
 !!! note "Database properties"
-    The cover/properties table shows **every field present in the HTML export**. Notion often omits **Password**-type properties from HTML exports. If a field is missing from the PDF, open the raw `.html` in a browser or editor and confirm the row exists before converting.
+    Notion's cover properties table (site/username/password/status, ...) is stripped before conversion and never appears in the PDF — it's metadata, not content meant to be printed.
 
 ## Convert a ZIP (recommended)
 

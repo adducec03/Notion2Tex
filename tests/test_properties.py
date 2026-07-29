@@ -4,7 +4,7 @@ from notion2tex.properties import normalize_properties_table
 from notion2tex.table_latex import improve_longtable_block
 
 
-def test_normalize_properties_keeps_all_rows():
+def test_normalize_properties_removes_table():
     html = """
     <table class="properties"><tbody>
     <tr class="property-row property-row-url"><th><span class="icon property-icon"><img src="x.svg"/></span>Sito web</th>
@@ -21,10 +21,7 @@ def test_normalize_properties_keeps_all_rows():
     count, labels = normalize_properties_table(soup)
     assert count == 4
     assert labels == ["Sito web", "Username", "Password", "Status"]
-    rows = soup.find_all("tr", class_=lambda c: c and "property-row" in c)
-    assert rows[1].find("th").get_text(strip=True) == "Username"
-    assert rows[1].find("td").get_text(strip=True) == "student123"
-    assert not rows[3].find("td").select(".status-dot")
+    assert soup.find("table", class_="properties") is None
 
 
 def test_key_value_longtable_rebuild():

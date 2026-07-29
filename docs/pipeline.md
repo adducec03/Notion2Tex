@@ -31,7 +31,7 @@ Prepares Notion HTML before Pandoc:
 | Callouts | `<aside>` → `<div>` so Pandoc keeps its classes/attributes instead of dropping the wrapper; emoji icon stripped (pdfLaTeX has no color-emoji glyphs) |
 | Code blocks | `<code class="language-X">` → `class="X"`, and the wrapping `<pre>`'s own attributes are cleared — both are required for Pandoc to apply syntax highlighting at all |
 | Table repair | Removes invalid `<div>` wrappers inside `<table>` |
-| Properties | Normalizes the cover metadata table |
+| Properties | Removes the cover's properties table (site/username/password/status, ...) — not meant for the printed document |
 | Images | Preserves Notion's display width and alignment (left/center/right); downloads any image Notion only linked to (page cover, "image from link", bookmark previews) into `notion2tex_downloads/`, omitted cleanly on failure |
 | Math | Notion's `data-notion-equation`/`data-notion-inline-equation` (current export format) or legacy KaTeX `<annotation>` → MathML (inline) or display math, with fallback support for both |
 | SVG removal | Drops SVG icons/images that break `pdflatex` |

@@ -211,7 +211,10 @@ def _apply_dark_theme(text: str) -> str:
     those regions use the plain DeviceGray "0" (black) operator instead of
     our RGB color, even though \\color{notiondarktext} is active everywhere
     else. Each of those needs its own explicit \\color{} instead of relying
-    on the ambient one.
+    on the ambient one. Same story for fancyhdr's \\headrule (its own \\hrule
+    box, drawn outside \\fancyhead's color scope) and for the TOC's page
+    numbers, which the LaTeX kernel's \\@dottedtocline hardcodes back to
+    \\normalcolor regardless of the ambient color.
 
     Runs after _enable_hyperref_links, so its blue-on-white link colors
     (picked for a light page) can be swapped for something that stays
@@ -248,6 +251,17 @@ def _apply_dark_theme(text: str) -> str:
         "\\fancyfoot[C]{\\color{notiondarktext}\\thepage}",
         1,
     )
+    # \headrule (the thin line under the header) is its own \hrule box, drawn
+    # after \fancyhead's color scope has already closed — still black otherwise.
+    text = text.replace(
+        r"\renewcommand{\headrulewidth}{0.4pt}",
+        "\\renewcommand{\\headrulewidth}{0.4pt}\n"
+        "\\makeatletter\n"
+        "\\renewcommand{\\headrule}{{\\color{notiondarktext}"
+        "\\hrule\\@height\\headrulewidth\\@width\\headwidth\\vskip-\\headrulewidth}}\n"
+        "\\makeatother",
+        1,
+    )
 
     # \begin{table}/\begin{figure} are floats; same box-isolation issue.
     text = re.sub(
@@ -260,7 +274,11 @@ def _apply_dark_theme(text: str) -> str:
         r"\begin{document}",
         "\\begin{document}\n"
         "\\pagecolor{notiondarkbg}\n"
-        "\\color{notiondarktext}\n",
+        "\\color{notiondarktext}\n"
+        # The LaTeX kernel's TOC line macro (\@dottedtocline) hardcodes
+        # "\normalfont\normalcolor" around the page number, resetting past
+        # our ambient \color — redefining \normalcolor itself is the fix.
+        "\\renewcommand{\\normalcolor}{\\color{notiondarktext}}\n",
         1,
     )
 
@@ -461,6 +479,27 @@ def _unwrap_gather_with_environments(text):
     )
 
 
+def _unwrap_align_inside_gathered(text):
+    """
+    \\[\\begin{gathered}\\begin{align*}...\\end{align*}\\end{gathered}\\]
+    is invalid: align/align*/alignat/flalign are themselves top-level
+    display-math starters and cannot nest inside gathered (which already
+    expects to sit directly inside \\[...\\]). Left as-is, this desyncs
+    math mode for pdfTeX and cascades into hundreds of unrelated
+    "Undefined control sequence"/"Missing $ inserted" errors for the rest
+    of the document. Seen coming straight from equations authored this way
+    in Notion itself. When gathered's only content is one such block, drop
+    the outer \\[...\\]/gathered wrapper and keep the align block alone.
+    """
+    pattern = re.compile(
+        r"\\\[\s*\\begin\{gathered\}\s*"
+        r"(\\begin\{(align\*?|alignat\*?|flalign\*?)\}.*?\\end\{\2\})"
+        r"\s*\\end\{gathered\}\s*\\\]",
+        re.DOTALL,
+    )
+    return pattern.sub(lambda m: m.group(1), text)
+
+
 def _fix_cases_environments(text):
     """Fix alignment and blank lines in cases environments."""
 
@@ -477,6 +516,39 @@ def _fix_cases_environments(text):
         text,
         flags=re.DOTALL,
     )
+
+
+_BLANK_LINE_MATH_ENVS = (
+    "gathered",
+    "gather\\*?",
+    "align\\*?",
+    "alignat\\*?",
+    "flalign\\*?",
+    "aligned",
+    "split",
+)
+_BLANK_LINE_MATH_ENV_RE = re.compile(
+    r"\\begin\{(" + "|".join(_BLANK_LINE_MATH_ENVS) + r")\}(.*?)\\end\{\1\}",
+    re.DOTALL,
+)
+
+
+def _strip_blank_lines_in_math_environments(text):
+    """
+    A blank line inside an amsmath multi-line environment becomes \\par at
+    typeset time, which is illegal in math mode: pdfTeX reports
+    "Missing $ inserted" and the failure cascades into dozens of unrelated-
+    looking errors through the rest of the document. Notion equations are
+    often typed with a blank line between rows for readability in the
+    source editor — strip them here before pdflatex ever sees them.
+    """
+
+    def clean(match):
+        env = match.group(1)
+        body = re.sub(r"\n[ \t]*\n+", "\n", match.group(2))
+        return f"\\begin{{{env}}}{body}\\end{{{env}}}"
+
+    return _BLANK_LINE_MATH_ENV_RE.sub(clean, text)
 
 
 def _deescape_pandoc_latex(text):
@@ -542,24 +614,69 @@ _PANDOC_STRIKEOUT_BLOCK = re.compile(
 )
 
 
+_SOUL_MACRO_USE_RE = re.compile(r"\\(?:ul|sout|st|hl)\{")
+
+
 def _ensure_strikeout_support(text: str) -> str:
     """
     Pandoc loads ``soul`` for underline/strikeout; TeX Live basic often lacks it.
 
     Fall back to ``ulem`` (or no-op macros) so pdflatex does not stop on missing soul.sty.
+
+    Pandoc only emits its own soul-loading block when it recognizes a native
+    Strikeout AST node. Underline (\\ul{}) and highlight (\\hl{}/\\sethlcolor)
+    are injected as raw LaTeX by our own Lua filter and never trigger that —
+    so a document using underline/highlight but no strikethrough gets no
+    soul/ulem package at all from Pandoc, and pdflatex chokes on \\ul{}
+    ("Undefined control sequence"). Insert the same fallback block
+    ourselves whenever the body actually uses one of these macros.
+
+    The true/false branches use boolean flags (\\ifNTX...\\fi), not raw
+    \\providecommand text nested directly inside \\IfFileExists{}{}{}'s own
+    braced arguments — the latter needs its "#1" doubled to "##1" per level
+    of \\IfFileExists nesting (each one performs its own internal \\def
+    capture of its branches), which is exactly the kind of thing that's easy
+    to get wrong; verified by direct pdflatex compilation that the flag-based
+    version below does not hit "Illegal parameter number" on a system where
+    soul.sty is missing. ulem also has no \\ul (only \\uline) or highlight
+    support at all, so those need explicit handling in the ulem branch too.
     """
     strikeout_block = (
         "\\ifLuaTeX\n"
         "  \\usepackage{luacolor}\n"
         "  \\IfFileExists{lua-ul.sty}{\\usepackage[soul]{lua-ul}}{}\n"
         "\\else\n"
-        "  \\IfFileExists{soul.sty}{\\usepackage{soul}}{"
-        "\\IfFileExists{ulem.sty}{\\usepackage[normalem]{ulem}}{"
-        "\\providecommand{\\sout}[1]{#1}\\providecommand{\\ul}[1]{#1}}"
-        "}\n"
+        "  \\newif\\ifNTXSoulFound\n"
+        "  \\newif\\ifNTXUlemFound\n"
+        "  \\IfFileExists{soul.sty}{\\NTXSoulFoundtrue}{\\NTXSoulFoundfalse}\n"
+        "  \\ifNTXSoulFound\n"
+        "    \\usepackage{soul}\n"
+        "  \\else\n"
+        "    \\IfFileExists{ulem.sty}{\\NTXUlemFoundtrue}{\\NTXUlemFoundfalse}\n"
+        "    \\ifNTXUlemFound\n"
+        "      \\usepackage[normalem]{ulem}\n"
+        "      \\let\\ul\\uline\n"
+        "      \\providecommand{\\hl}[1]{#1}\n"
+        "      \\providecommand{\\sethlcolor}[1]{}\n"
+        "    \\else\n"
+        "      \\providecommand{\\sout}[1]{#1}\n"
+        "      \\providecommand{\\ul}[1]{#1}\n"
+        "      \\providecommand{\\hl}[1]{#1}\n"
+        "      \\providecommand{\\sethlcolor}[1]{}\n"
+        "    \\fi\n"
+        "  \\fi\n"
         "\\fi"
     )
-    return _PANDOC_STRIKEOUT_BLOCK.sub(lambda _: strikeout_block, text, count=1)
+    if _PANDOC_STRIKEOUT_BLOCK.search(text):
+        return _PANDOC_STRIKEOUT_BLOCK.sub(lambda _: strikeout_block, text, count=1)
+
+    if r"\usepackage{soul}" in text or r"\usepackage[normalem]{ulem}" in text:
+        return text
+    if not _SOUL_MACRO_USE_RE.search(text):
+        return text
+    return text.replace(
+        r"\begin{document}", strikeout_block + "\n\\begin{document}", 1
+    )
 
 
 def _ensure_grffile(text: str) -> str:
@@ -950,6 +1067,8 @@ def fix_latex(tex_path, dark: bool = False):
     text = _fix_pandoc_char_escapes(text)
 
     text = _fix_cases_environments(text)
+    text = _strip_blank_lines_in_math_environments(text)
+    text = _unwrap_align_inside_gathered(text)
     text = _unwrap_gather_with_environments(text)
     text, n_gather = _fix_display_math_blocks(text)
     text, n_titles = _fix_section_titles(text)

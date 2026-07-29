@@ -36,7 +36,7 @@ Run `pdflatex` **twice**. Delete `.toc` / `.aux` first if you changed section st
 
 - Keep image folders from the Notion export **next to the HTML** with the same relative paths as in the export.
 - Do not rename the asset folder or move images before converting.
-- On macOS, AVIF images are converted to PNG via `sips` when needed.
+- AVIF/WebP images are converted to PNG when needed: via `sips` on macOS, or `avifdec`/`dwebp` (Debian packages `libavif-bin`/`webp`, both in the provided Dockerfile) on Linux. Without one of these tools available, that image is omitted rather than breaking the build — check the log for `image omitted (missing or unsupported format)`.
 
 ## `File ...sty not found`
 
@@ -65,6 +65,8 @@ Pandoc only colors a code block when the `<code>` tag's class is the bare langua
 ## Linked/external images are missing or show a broken box with a URL
 
 Page covers, "image from link" blocks, and web-bookmark previews are not embedded in the export — Notion only stores a URL. Notion2Tex downloads them during conversion (look for `Remote images downloaded → N` in the log) and stores them in a `notion2tex_downloads/` folder next to the HTML. If a download fails (network unavailable, broken URL, non-image response), that one image is omitted cleanly rather than breaking the build — check the log for `Could not download image, omitting: <url>` and verify the URL still resolves in a browser.
+
+Running in Docker: this needs the `ca-certificates` package present **at runtime**, not just while building the image — HTTPS downloads fail their certificate check (and get silently treated as "download failed") without it. The provided Dockerfile keeps it; if you trimmed a custom image down and only installed `ca-certificates` to fetch something during the build stage, make sure it's still there in the final image.
 
 ## `--dark` output has low-contrast or invisible text somewhere
 

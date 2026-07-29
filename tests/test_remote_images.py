@@ -70,6 +70,29 @@ def test_download_remote_images_handles_network_error(tmp_path: Path):
     assert soup.find("img")["src"] == "https://example.com/unreachable.jpg"
 
 
+def test_download_remote_images_url_without_extension_uses_content_type(tmp_path: Path):
+    # Notion page covers are often hosted on Unsplash, whose URLs have no
+    # file extension at all (extension only implied by a "fm=jpg" query
+    # param) — the local filename must come from the real Content-Type,
+    # not a made-up ".img" suffix pdflatex can't embed.
+    soup = BeautifulSoup(
+        '<img class="page-cover-image" '
+        'src="https://images.unsplash.com/photo-123?ixlib=rb-4.1.0&q=85&fm=jpg"/>',
+        "html.parser",
+    )
+    with patch(
+        "urllib.request.urlopen",
+        return_value=_mock_response(b"fake-jpeg-bytes", content_type="image/jpeg"),
+    ):
+        count = download_remote_images(soup, tmp_path)
+
+    assert count == 1
+    img = soup.find("img")
+    assert img["src"].endswith(".jpg")
+    assert not img["src"].endswith(".img")
+    assert (tmp_path / img["src"]).is_file()
+
+
 def test_download_remote_images_caches_existing_file(tmp_path: Path):
     soup = BeautifulSoup(
         '<img src="https://example.com/photo.jpg"/>', "html.parser"

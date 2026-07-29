@@ -21,6 +21,12 @@ ARG PANDOC_VERSION=3.10.1
 
 # Installazione dipendenze di sistema minime.
 # Rimossi: texlive-fonts-extra (troppo pesante) e duplicati inutili.
+# curl serve solo per scaricare pandoc qui sotto ed e' rimosso subito dopo;
+# ca-certificates resta invece nell'immagine finale perche' serve a runtime
+# a notion2tex stesso per scaricare immagini remote (copertine, bookmark) via HTTPS.
+# libavif-bin (avifdec) e webp (dwebp) servono a runtime per convertire in PNG
+# le immagini locali AVIF/WebP (es. copertine salvate dal web) - su macOS lo
+# stesso lavoro lo fa "sips", non disponibile qui dentro Linux.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     texlive-latex-base \
     texlive-latex-recommended \
@@ -31,11 +37,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     lmodern \
     curl \
     ca-certificates \
+    libavif-bin \
+    webp \
     && curl -fsSL -o /tmp/pandoc.deb \
        "https://github.com/jgm/pandoc/releases/download/${PANDOC_VERSION}/pandoc-${PANDOC_VERSION}-1-${TARGETARCH}.deb" \
     && dpkg -i /tmp/pandoc.deb \
     && rm -f /tmp/pandoc.deb \
-    && apt-get purge -y curl ca-certificates \
+    && apt-get purge -y curl \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 

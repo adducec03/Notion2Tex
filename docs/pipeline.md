@@ -65,7 +65,7 @@ Post-processes the `.tex` file:
 | Cover page | Merges the duplicated title (`\maketitle` + Notion's page-title heading) into one designed title page: large centered title above the cover image, vertically balanced, no header/footer |
 | Running header | Book-style: the current chapter name at the top of every page, persisting across its subsections (via explicit `\sectionmark`/`\subsectionmark`, not the article-class default) |
 | TOC | `\tableofcontents` after cover; roman numerals for front matter, arabic from page 1 for body |
-| Figures | `[H]` placement; alignment (left/center/right) per Notion's own setting; image path fixes; AVIF → PNG on macOS via `sips` |
+| Figures | `[H]` placement; alignment (left/center/right) per Notion's own setting; image path fixes; AVIF/WebP → PNG via `sips` (macOS) or `avifdec`/`dwebp` (Linux) |
 | Math | Escaped `\$...\$` / `\$\$...\$\$`, `\textbackslash`, `gather*` / `cases`, Unicode symbols |
 | Titles | Corrupted `\section{...}` with KaTeX / bookmarks |
 | Captions | Removes empty `\caption{}` / spurious “Figure N” |

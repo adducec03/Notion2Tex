@@ -23,7 +23,7 @@ Notion2Tex/
 │   ├── remote_images.py  # Download images Notion only linked to
 │   ├── fix_latex.py      # Step 3: LaTeX post-processing (incl. dark theme)
 │   ├── table_latex.py    # Table conversion (used by fix_latex)
-│   ├── image_paths.py    # Resolve paths, AVIF → PNG
+│   ├── image_paths.py    # Resolve paths, AVIF/WebP → PNG
 │   ├── image_sizes.py    # Preserve image dimensions/alignment from HTML
 │   ├── properties.py     # Strips the cover properties table
 │   ├── katex_latex.py    # KaTeX → LaTeX math fixes

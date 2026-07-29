@@ -74,16 +74,40 @@ def resolve_image_file(work_dir: Path, rel_path: str) -> Path | None:
     return None
 
 
+def _conversion_commands(src: Path, dest: Path) -> list[list[str]]:
+    """
+    Candidate CLI conversions for *src* -> *dest*, most specific first.
+
+    ``sips`` is macOS-only. Docker/Linux has none of that preinstalled, so a
+    document whose cover/inline image is AVIF or WebP (common for images
+    saved from the web) silently lost its image on Linux even though the
+    exact same export converted fine on a Mac — same failure mode as any
+    other missing conversion tool, just platform-dependent. Prefer format-
+    specific decoders (accurate, no delegate surprises) before falling back
+    to a generic ImageMagick install.
+    """
+    commands: list[list[str]] = []
+    if shutil.which("sips"):
+        commands.append(["sips", "-s", "format", "png", str(src), "--out", str(dest)])
+    suffix = src.suffix.lower()
+    if suffix == ".avif" and shutil.which("avifdec"):
+        commands.append(["avifdec", str(src), str(dest)])
+    if suffix == ".webp" and shutil.which("dwebp"):
+        commands.append(["dwebp", str(src), "-o", str(dest)])
+    if shutil.which("magick"):
+        commands.append(["magick", str(src), str(dest)])
+    elif shutil.which("convert"):
+        commands.append(["convert", str(src), str(dest)])
+    return commands
+
+
 def _convert_to_png(src: Path, dest: Path) -> bool:
     if dest.is_file():
         return True
-    if shutil.which("sips"):
-        subprocess.run(
-            ["sips", "-s", "format", "png", str(src), "--out", str(dest)],
-            capture_output=True,
-            check=False,
-        )
-        return dest.is_file()
+    for cmd in _conversion_commands(src, dest):
+        subprocess.run(cmd, capture_output=True, check=False)
+        if dest.is_file():
+            return True
     return False
 
 

@@ -44,6 +44,9 @@ Notion2Tex tries `soul` for strikethrough/underline, then `ulem`, then disables 
 !!! note "Debian/Ubuntu package split"
     On Debian-based systems, `soul`/`ulem` ship in the `texlive-plain-generic` package rather than `texlive-latex-extra` — install it explicitly if `tlmgr` isn't available (`apt install texlive-plain-generic`).
 
+!!! note "AVIF/WebP images (e.g. page covers saved from the web)"
+    These need converting to PNG before pdflatex can embed them. Notion2Tex uses `sips` on macOS (preinstalled); on Linux, install `libavif-bin` (for `avifdec`) and `webp` (for `dwebp`) — `apt install libavif-bin webp`. Without one of these, that image is silently omitted rather than breaking the build.
+
 ## Docker alternative
 
 No local Pandoc/TeX install needed — the bundled `Dockerfile` builds an image with a pinned, known-good Pandoc release and a full TeX toolchain:

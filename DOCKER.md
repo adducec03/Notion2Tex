@@ -24,7 +24,7 @@ Invoke-WebRequest https://raw.githubusercontent.com/adducec03/Notion2Tex/main/sc
 ./notion2tex-docker.ps1 C:\Users\me\Downloads\Export.zip
 ```
 
-The script mounts the input file's own folder into the container and runs notion2tex there, so `Export.pdf`/`.tex`/`.log` land right next to `Export.zip` — no separate `exports/`/`output/` folders to manage. Extra CLI flags pass straight through:
+The script mounts the input file's own folder into the container and runs notion2tex there, so `Export.pdf`/`.tex`/`.log` land right next to `Export.zip` — no separate `exports/`/`output/` folders to manage. It also always pulls the latest `:latest` image before running (`docker run --pull always`), so every push to `main` is picked up automatically without you having to remember to `docker pull`. Extra CLI flags pass straight through:
 
 ```bash
 ./notion2tex-docker.sh /path/to/Export.zip --dark
@@ -36,6 +36,10 @@ Pin a specific version instead of `latest`:
 ```bash
 NOTION2TEX_IMAGE=ghcr.io/adducec03/notion2tex:v1.2.3 ./notion2tex-docker.sh /path/to/Export.zip
 ```
+
+### How the published image stays up to date
+
+[`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml) rebuilds and republishes `ghcr.io/adducec03/notion2tex:latest` on every push to `main` (merged PRs included), plus a versioned tag (e.g. `:v1.2.3`) whenever a `v*.*.*` tag is pushed. Pushes to other branches, or open PRs that haven't merged yet, don't trigger it. Because the wrapper scripts always `docker pull` before running, you get the newest `main` automatically — no manual `docker pull`/rebuild step needed.
 
 The rest of this guide covers building the image yourself from a clone of the repo (useful for development, or if you've changed the Dockerfile).
 

@@ -8,7 +8,9 @@
 #   notion2tex-docker.sh /path/to/Export.zip --dark
 #   notion2tex-docker.sh /path/to/Page.html --tex-only
 #
-# The image is pulled automatically on first use. Override it with:
+# Always pulls the latest ":latest" from the registry first (every push to
+# main republishes it), so you never run a stale cached copy. Pin a version
+# instead with:
 #   NOTION2TEX_IMAGE=ghcr.io/adducec03/notion2tex:v1.2.3 notion2tex-docker.sh Export.zip
 
 set -euo pipefail
@@ -32,7 +34,7 @@ IMAGE="${NOTION2TEX_IMAGE:-ghcr.io/adducec03/notion2tex:latest}"
 INPUT_DIR=$(cd "$(dirname "$INPUT_PATH")" && pwd)
 INPUT_NAME=$(basename "$INPUT_PATH")
 
-docker run --rm \
+docker run --rm --pull always \
   -v "${INPUT_DIR}:/data" \
   -w /data \
   "$IMAGE" \

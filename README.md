@@ -47,7 +47,7 @@ chmod +x notion2tex-docker.sh
 ./notion2tex-docker.sh /path/to/Export.zip
 ```
 
-(Windows: `scripts/notion2tex-docker.ps1`.) The image is pulled automatically on first run; output (`.pdf`, `.tex`, `.log`) is written right next to the input file. The image bundles a pinned, known-good Pandoc release plus a full TeX toolchain.
+(Windows: `scripts/notion2tex-docker.ps1`.) The script always pulls the latest image before running — every push to `main` republishes it, so you're never stuck on a stale local copy — and writes output (`.pdf`, `.tex`, `.log`) right next to the input file. The image bundles a pinned, known-good Pandoc release plus a full TeX toolchain.
 
 Working from a clone of this repo instead? See [DOCKER.md](DOCKER.md) for `docker compose`/local-build instructions and more examples.
 

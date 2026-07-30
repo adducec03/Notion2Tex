@@ -15,7 +15,9 @@
   ./notion2tex-docker.ps1 C:\Users\me\Downloads\Page.html --tex-only
 
 .NOTES
-  The image is pulled automatically on first use. Override it with:
+  Always pulls the latest ":latest" from the registry first (every push to
+  main republishes it), so you never run a stale cached copy. Pin a version
+  instead with:
     $env:NOTION2TEX_IMAGE = "ghcr.io/adducec03/notion2tex:v1.2.3"
 #>
 
@@ -40,7 +42,7 @@ $ResolvedPath = Resolve-Path -LiteralPath $InputPath
 $InputDir = Split-Path -Parent $ResolvedPath
 $InputName = Split-Path -Leaf $ResolvedPath
 
-docker run --rm `
+docker run --rm --pull always `
     -v "${InputDir}:/data" `
     -w /data `
     $Image `

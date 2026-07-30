@@ -85,11 +85,22 @@ fix_latex("page.tex")
 | Dark mode palette | `filters/notion_formatting.lua` (`DARK_TEXT_COLORS`, `DARK_BACKGROUND_COLORS`) and `fix_latex.py` (`_apply_dark_theme`, `_DARK_*` constants) |
 | Remote image download timeout/behavior | `remote_images.py` |
 
-## Publishing to PyPI
+## Releasing a new version (PyPI + Docker, together)
 
-1. Bump `__version__` in `notion2tex/__init__.py` (read by `pyproject.toml` via Hatch).
-2. Tag the release (optional): `git tag v0.1.1 && git push origin v0.1.1`
-3. Build and upload:
+One tag drives both: [`.github/workflows/pypi-publish.yml`](https://github.com/adducec03/Notion2Tex/blob/main/.github/workflows/pypi-publish.yml) and [`docker-publish.yml`](https://github.com/adducec03/Notion2Tex/blob/main/.github/workflows/docker-publish.yml) both trigger on a `v*.*.*` tag push, and both refuse to publish if the tag doesn't match `__version__` in `notion2tex/__init__.py` — so PyPI and the `ghcr.io/adducec03/notion2tex` image can't silently drift apart.
+
+1. Bump `__version__` in `notion2tex/__init__.py` (read by `pyproject.toml` via Hatch) — e.g. `"0.1.0"` → `"0.2.0"`.
+2. Commit that change on `main`.
+3. Tag it and push the tag: `git tag v0.2.0 && git push origin v0.2.0`.
+4. Both workflows run automatically:
+      - PyPI gets `notion2tex==0.2.0`.
+      - GHCR gets `ghcr.io/adducec03/notion2tex:0.2.0`, `:0.2`, and (only from a push to `main`, not from the tag itself) `:latest`.
+
+You cannot replace an existing version on PyPI; always use a new version number.
+
+PyPI publishing uses [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) (OIDC) — no API token stored in the repo. One-time setup before the *first* tag push: on [pypi.org](https://pypi.org/manage/account/publishing/), add a pending publisher for project `notion2tex`, owner `adducec03`, repository `Notion2Tex`, workflow `pypi-publish.yml`, environment `pypi`. Without this, the workflow fails at the publish step with an auth error.
+
+Manual/local build, if ever needed instead:
 
 ```bash
 rm -rf dist/ build/
@@ -97,8 +108,6 @@ python -m build
 twine check dist/*
 twine upload dist/*
 ```
-
-You cannot replace an existing version on PyPI; always use a new version number.
 
 ## Documentation site
 

@@ -1,0 +1,58 @@
+# Build and publish to PyPI on every version tag.
+#
+# Uses PyPI's "Trusted Publisher" (OIDC) flow: no API token/secret stored
+# in this repo. One-time setup (repo owner), *before* the first tag push:
+#   https://pypi.org/manage/project/notion2tex/settings/publishing/
+#   (or, if the project doesn't exist on PyPI yet:
+#   https://pypi.org/manage/account/publishing/)
+#   Add a pending publisher with:
+#     PyPI project name: notion2tex
+#     Owner:              adducec03
+#     Repository name:    Notion2Tex
+#     Workflow name:      pypi-publish.yml
+#     Environment name:   pypi
+# Without this, the "Publish to PyPI" step below fails with an auth error
+# — not a confusing one, but easy to miss if this note isn't read first.
+
+name: Publish to PyPI
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/notion2tex/
+    permissions:
+      id-token: write # required for PyPI trusted publishing
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify tag matches notion2tex/__init__.py version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION=$(python -c "import re,sys; text=open('notion2tex/__init__.py').read(); m=re.search(r'__version__\s*=\s*\"([^\"]+)\"', text); sys.exit('no __version__ found') if not m else print(m.group(1))")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Tag v$TAG_VERSION does not match notion2tex/__init__.py's __version__ ($PKG_VERSION). Bump __version__, commit, then re-tag."
+            exit 1
+          fi
+
+      - name: Install build tool
+        run: pip install build
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

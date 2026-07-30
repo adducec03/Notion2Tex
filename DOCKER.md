@@ -39,7 +39,7 @@ NOTION2TEX_IMAGE=ghcr.io/adducec03/notion2tex:v1.2.3 ./notion2tex-docker.sh /pat
 
 ### How the published image stays up to date
 
-[`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml) rebuilds and republishes `ghcr.io/adducec03/notion2tex:latest` on every push to `main` (merged PRs included), plus a versioned tag (e.g. `:v1.2.3`) whenever a `v*.*.*` tag is pushed. Pushes to other branches, or open PRs that haven't merged yet, don't trigger it. Because the wrapper scripts always `docker pull` before running, you get the newest `main` automatically — no manual `docker pull`/rebuild step needed.
+[`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml) rebuilds and republishes `ghcr.io/adducec03/notion2tex:latest` on every push to `main` (merged PRs included), plus versioned tags (e.g. `:1.2.3` and `:1.2`, no `v` prefix) whenever a `v1.2.3`-style git tag is pushed — the same tag that also triggers a matching PyPI release, see [Releasing a new version](https://adducec03.github.io/Notion2Tex/development/#releasing-a-new-version-pypi-docker-together) in the docs. Pushes to other branches, or open PRs that haven't merged yet, don't trigger it. Because the wrapper scripts always `docker pull` before running, you get the newest `main` automatically — no manual `docker pull`/rebuild step needed.
 
 The rest of this guide covers building the image yourself from a clone of the repo (useful for development, or if you've changed the Dockerfile).
 

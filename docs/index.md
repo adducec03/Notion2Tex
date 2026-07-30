@@ -38,7 +38,7 @@ Your content stays on your disk, under your control.
 
 **Structure**
 
-Nested toggles become a proper heading hierarchy. The table of contents matches how you organized the page.
+Nested toggles become a proper heading hierarchy, with a matching table of contents.
 
 </div>
 
@@ -46,7 +46,7 @@ Nested toggles become a proper heading hierarchy. The table of contents matches 
 
 **Math & tables**
 
-KaTeX formulas and `simple-table` blocks are cleaned before Pandoc runs, then fixed in LaTeX when needed.
+Formulas and tables come through correctly, not as broken text or images.
 
 </div>
 
@@ -54,7 +54,7 @@ KaTeX formulas and `simple-table` blocks are cleaned before Pandoc runs, then fi
 
 **Images & cover**
 
-Image paths, sizes, and left/center/right alignment carry over as Notion set them — including images Notion only linked to (covers, "image from link", bookmark previews), downloaded automatically. A single designed title page replaces the duplicated default title.
+Sizes, alignment, and page covers carry over as set in Notion — including images Notion only links to.
 
 </div>
 
@@ -62,7 +62,7 @@ Image paths, sizes, and left/center/right alignment carry over as Notion set the
 
 **Formatting & dark mode**
 
-Colored/highlighted text, underline, strikethrough, multi-column layouts, callouts, quotes, and syntax-highlighted code all carry over from Notion. Add `--dark` for a dark gray page with matching adjusted colors.
+Colors, highlights, underline, columns, callouts, and syntax-highlighted code all carry over. Add `--dark` for a dark PDF.
 
 </div>
 
@@ -81,12 +81,12 @@ Colored/highlighted text, underline, strikethrough, multi-column layouts, callou
 </ol>
 
 ```bash
-pip install notion2tex
-notion2tex --check
-notion2tex "/path/to/Export.zip"
+curl -O https://raw.githubusercontent.com/adducec03/Notion2Tex/main/scripts/notion2tex-docker.sh
+chmod +x notion2tex-docker.sh
+./notion2tex-docker.sh "/path/to/Export.zip"
 ```
 
-Requires [Pandoc](https://pandoc.org/installing.html) and a TeX distribution with `pdflatex` — also installed locally.
+No Pandoc or TeX to install — it's all bundled in the Docker image. Prefer `pip install notion2tex`? See [Installation](installation.md) for that and other options.
 
 </div>
 

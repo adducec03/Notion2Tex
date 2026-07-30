@@ -2,100 +2,52 @@
 
 ## Export from Notion
 
-1. Open the Notion page (or run a workspace export).
-2. Export as **HTML** (include subpages if you need them). Notion delivers a **`.zip`** file.
-3. Run Notion2Tex on that ZIP. The tool extracts the archive and keeps image paths intact (`Page.html` + `Page/` asset folder).
-4. Do not rename or move files inside the export before converting; paths in the HTML are relative to the `.html` file.
+1. Open the page in Notion and export it as **HTML** — Notion gives you a `.zip` file.
+2. Run Notion2Tex on that ZIP.
+3. Don't rename or move files inside the export before converting; the HTML refers to them by relative path.
 
-!!! note "Database properties"
-    Notion's cover properties table (site/username/password/status, ...) is stripped before conversion and never appears in the PDF — it's metadata, not content meant to be printed.
-
-## Convert a ZIP (recommended)
+## Convert
 
 ```bash
 notion2tex "/path/to/Export.zip"
 ```
 
-The ZIP is extracted to a folder with the same name (e.g. `Export.zip` → `Export/`), then the pipeline runs on the main page inside it.
-
-## Convert a single HTML file
-
-If the export is already extracted:
+Notion2Tex extracts the ZIP, cleans up the HTML, and builds a PDF next to it. If you've already extracted the export yourself, point it at the `.html` file instead:
 
 ```bash
 notion2tex "/path/to/export/Page Name.html"
 ```
 
-The `.html` must sit next to its asset folder (same layout as Notion’s export).
+## Output
 
-## Output files
+For a page `Automata.html`, you'll get:
 
-For a page `Automata.html` inside `Export/`:
-
-| File | Description |
+| File | What it is |
 |------|-------------|
-| `Automata.html` | Original Notion export (unchanged) |
-| `Automata.tex` | LaTeX source |
-| `Automata.pdf` | Final PDF |
-| `Automata.log` | pdflatex log (when PDF is built) |
+| `Automata.pdf` | The final PDF |
+| `Automata.tex` | The generated LaTeX source |
+| `Automata.log` | pdflatex's build log |
 
-Intermediate files (`_clean.html`, `.aux`, `.toc`, `.out`, …) are removed automatically after a successful run.
+Intermediate files are cleaned up automatically after a successful run.
 
-Files are written **next to the HTML** inside the export folder.
-
-## CLI options
+## Useful flags
 
 ```bash
-notion2tex --help
-notion2tex --check                    # verify pandoc + pdflatex
-notion2tex --version
-notion2tex Export.zip --tex-only      # LaTeX only, no pdflatex
-notion2tex Export.zip -v              # show compiler output
-notion2tex Export.zip --no-color      # plain terminal output
-notion2tex Export.zip --extract-dir ./work
-notion2tex Export.zip --dark          # dark gray page, light text/colors
+notion2tex --check                    # verify Pandoc + pdflatex are installed
+notion2tex Export.zip --dark          # dark-mode PDF
+notion2tex Export.zip --tex-only      # generate the .tex without building a PDF
+notion2tex Export.zip -v              # show full compiler output
+notion2tex --help                     # everything else
 ```
 
-## Formatting fidelity
+## What carries over from Notion
 
-The pipeline preserves most of Notion's own formatting rather than falling back to plain text:
-
-| Notion feature | Result in PDF |
-|-----------------|---------------|
-| Colored / highlighted text | `\textcolor{}`/highlight background, matching Notion's palette |
-| Underline, strikethrough | Rendered via `soul` |
-| Multi-column layout | Side-by-side columns, sized from Notion's own ratios |
-| Callout blocks | Rounded, colored box (icon dropped — pdfLaTeX has no color-emoji glyphs) |
-| Quote blocks | Left border, matching Notion's own quote style |
-| Web bookmark blocks | Bordered card with title, description, link, and preview image |
-| Code blocks | Syntax-highlighted by language (falls back to plain text for unrecognized languages) |
-| Image alignment | Left / center / right, as set in Notion |
-| Images linked, not embedded (page cover, "image from link", bookmark previews) | Downloaded once and embedded; omitted cleanly if unreachable |
+Colors, highlights, underline, strikethrough, multi-column layouts, callouts, quotes, syntax-highlighted code, image alignment, and page covers are all preserved in the PDF — not flattened to plain text. See [Troubleshooting](troubleshooting.md) if something looks off.
 
 ### Dark mode
 
-`--dark` renders the PDF on a dark gray page (not pure black) with light text, adjusted link/highlight colors, and a dark syntax theme for code — instead of Notion's own light-mode palette, which would have poor contrast on a dark background.
+`--dark` produces a dark gray page with light text and adjusted colors, instead of just inverting Notion's light-theme palette (which would look washed out):
 
 ```bash
 notion2tex Export.zip --dark
-```
-
-## Manual build (LaTeX only)
-
-Generate `.tex` without running `pdflatex`:
-
-```bash
-notion2tex automata.html --tex-only
-cd "$(dirname automata.html)"
-rm -f automata.aux automata.toc automata.out
-pdflatex -interaction=nonstopmode automata.tex
-pdflatex -interaction=nonstopmode automata.tex
-```
-
-The second `pdflatex` pass is **required** for a correct table of contents and page numbers.
-
-Or run the full pipeline in one step:
-
-```bash
-notion2tex automata.html
 ```

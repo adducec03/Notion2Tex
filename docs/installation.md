@@ -1,55 +1,10 @@
 # Installation
 
-## Requirements
+Pick one of three ways to run Notion2Tex, roughly from easiest to most involved.
 
-| Tool | Purpose |
-|------|---------|
-| **Python 3.10+** | CLI and HTML/LaTeX processing |
-| **Pandoc 3.x** | HTML → LaTeX — needs to be **fairly recent** (see below) |
-| **pdflatex** (TeX Live or MacTeX) | PDF build, with `tcolorbox`, `framed`, `soul`/`ulem`, `lmodern` |
+## Option 1: Docker (recommended)
 
-Notion2Tex does **not** bundle Pandoc or TeX. Install them separately on your system, or use the [Docker image](#docker-alternative) below, which pins known-good versions of both.
-
-### Pandoc
-
-Download and install from the [Pandoc installation guide](https://pandoc.org/installing.html).
-
-Verify:
-
-```bash
-pandoc --version
-```
-
-!!! warning "Use a recent Pandoc, not your Linux distro's packaged one"
-    The pipeline relies on a Lua filter and MathML-based math handling that need a **recent** Pandoc build. Debian/Ubuntu's `apt install pandoc` can lag far behind upstream and will silently drop colored text, underline, columns, callouts, or math — with no error, just missing formatting. Install directly from [pandoc.org](https://pandoc.org/installing.html) (or GitHub Releases) instead of the distro package if you hit this.
-
-### TeX (pdflatex)
-
-Install [TeX Live](https://www.tug.org/texlive/) (Linux/Windows) or [MacTeX](https://www.tug.org/mactex/) (macOS). A minimal TeX Live install is usually enough.
-
-Verify:
-
-```bash
-pdflatex --version
-```
-
-If compilation fails with a missing `.sty` file, install the package with TeX Live Manager, for example:
-
-```bash
-tlmgr install soul ulem float booktabs tabularx hyperref tcolorbox framed
-```
-
-Notion2Tex tries `soul` for strikethrough/underline, then `ulem`, then disables strikeout if neither is available. Callouts, quotes, and web-bookmark cards additionally need `tcolorbox` and `framed`.
-
-!!! note "Debian/Ubuntu package split"
-    On Debian-based systems, `soul`/`ulem` ship in the `texlive-plain-generic` package rather than `texlive-latex-extra` — install it explicitly if `tlmgr` isn't available (`apt install texlive-plain-generic`).
-
-!!! note "AVIF/WebP images (e.g. page covers saved from the web)"
-    These need converting to PNG before pdflatex can embed them. Notion2Tex uses `sips` on macOS (preinstalled); on Linux, install `libavif-bin` (for `avifdec`) and `webp` (for `dwebp`) — `apt install libavif-bin webp`. Without one of these, that image is silently omitted rather than breaking the build.
-
-## Docker alternative
-
-No local Pandoc/TeX install needed, and no repo clone either — the image is published to GitHub Container Registry and a wrapper script runs it against any file on disk:
+No Python, Pandoc, or TeX to install — everything runs inside a container. You only need [Docker](https://docs.docker.com/get-docker/).
 
 ```bash
 curl -O https://raw.githubusercontent.com/adducec03/Notion2Tex/main/scripts/notion2tex-docker.sh
@@ -57,28 +12,38 @@ chmod +x notion2tex-docker.sh
 ./notion2tex-docker.sh /path/to/Export.zip
 ```
 
-(Windows: `scripts/notion2tex-docker.ps1`.) The script always pulls the latest image before running — every push to `main` republishes it — and writes output (`.pdf`, `.tex`, `.log`) right next to the input file. The image bundles a pinned, known-good Pandoc release and a full TeX toolchain.
+Windows (PowerShell):
 
-See [DOCKER.md](https://github.com/adducec03/Notion2Tex/blob/main/DOCKER.md) in the repository for `docker compose`/local-build instructions if you're working from a clone.
+```powershell
+Invoke-WebRequest https://raw.githubusercontent.com/adducec03/Notion2Tex/main/scripts/notion2tex-docker.ps1 -OutFile notion2tex-docker.ps1
+./notion2tex-docker.ps1 C:\Users\me\Downloads\Export.zip
+```
 
-## Install from PyPI
+The script downloads the image on first use and writes the PDF right next to your input file. See [DOCKER.md](https://github.com/adducec03/Notion2Tex/blob/main/DOCKER.md) for more options.
+
+## Option 2: pip
 
 ```bash
 pip install notion2tex
 notion2tex --check
 ```
 
-The package page is [pypi.org/project/notion2tex](https://pypi.org/project/notion2tex/).
+This installs the CLI, but **not** Pandoc or a TeX distribution — install those separately:
 
-Upgrade to a newer release:
+- [Pandoc](https://pandoc.org/installing.html) — use a recent release, not an old distro package.
+- [TeX Live](https://www.tug.org/texlive/) (Linux/Windows) or [MacTeX](https://www.tug.org/mactex/) (macOS) for `pdflatex`.
+
+`notion2tex --check` confirms both are found. If something's missing or outdated, see [Troubleshooting](troubleshooting.md).
+
+Upgrade later with:
 
 ```bash
 pip install -U notion2tex
 ```
 
-## Install for development
+## Option 3: From source
 
-Clone the repository and install in editable mode:
+For contributing, or to try unreleased changes.
 
 ```bash
 git clone https://github.com/adducec03/Notion2Tex.git
@@ -86,23 +51,7 @@ cd Notion2Tex
 python3 -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
-pytest
+notion2tex --check
 ```
 
-Optional: install documentation build tools:
-
-```bash
-pip install -r docs/requirements.txt
-mkdocs serve   # preview at http://127.0.0.1:8000
-```
-
-## Optional wrapper script
-
-After a development install, you can use the thin shell wrapper:
-
-```bash
-chmod +x n2t.sh   # once
-./n2t.sh Export.zip
-```
-
-This calls the same `notion2tex` CLI as `pip install notion2tex`.
+Same Pandoc/TeX requirements as the pip install above. Run the test suite with `pytest`.

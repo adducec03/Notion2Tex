@@ -49,15 +49,17 @@ Notion2Tex tries `soul` for strikethrough/underline, then `ulem`, then disables 
 
 ## Docker alternative
 
-No local Pandoc/TeX install needed — the bundled `Dockerfile` builds an image with a pinned, known-good Pandoc release and a full TeX toolchain:
+No local Pandoc/TeX install needed, and no repo clone either — the image is published to GitHub Container Registry and a wrapper script runs it against any file on disk:
 
 ```bash
-docker build -t notion2tex:latest .
-docker compose run notion2tex --check
-docker compose run notion2tex Export.zip
+curl -O https://raw.githubusercontent.com/adducec03/Notion2Tex/main/scripts/notion2tex-docker.sh
+chmod +x notion2tex-docker.sh
+./notion2tex-docker.sh /path/to/Export.zip
 ```
 
-See [DOCKER.md](https://github.com/adducec03/Notion2Tex/blob/main/DOCKER.md) in the repository for volume mounts and more examples.
+(Windows: `scripts/notion2tex-docker.ps1`.) Output (`.pdf`, `.tex`, `.log`) is written right next to the input file. The image bundles a pinned, known-good Pandoc release and a full TeX toolchain.
+
+See [DOCKER.md](https://github.com/adducec03/Notion2Tex/blob/main/DOCKER.md) in the repository for `docker compose`/local-build instructions if you're working from a clone.
 
 ## Install from PyPI
 

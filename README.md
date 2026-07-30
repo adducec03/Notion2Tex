@@ -39,13 +39,17 @@ Install TeX (includes `pdflatex`): https://www.tug.org/texlive/ (or MacTeX on ma
 
 ### Install with Docker (no local Pandoc/TeX needed)
 
+No clone required — pull the published image and point the wrapper script at any file on disk:
+
 ```bash
-docker build -t notion2tex:latest .
-docker compose run notion2tex --check
-docker compose run notion2tex Export.zip
+curl -O https://raw.githubusercontent.com/adducec03/Notion2Tex/main/scripts/notion2tex-docker.sh
+chmod +x notion2tex-docker.sh
+./notion2tex-docker.sh /path/to/Export.zip
 ```
 
-The image bundles a pinned, known-good Pandoc release plus a full TeX toolchain. See [DOCKER.md](DOCKER.md) for volume mounts and more examples.
+(Windows: `scripts/notion2tex-docker.ps1`.) The image is pulled automatically on first run; output (`.pdf`, `.tex`, `.log`) is written right next to the input file. The image bundles a pinned, known-good Pandoc release plus a full TeX toolchain.
+
+Working from a clone of this repo instead? See [DOCKER.md](DOCKER.md) for `docker compose`/local-build instructions and more examples.
 
 **Development install** (clone + editable):
 
@@ -143,6 +147,7 @@ Notion2Tex/
 ├── tests/
 ├── docs/             # MkDocs source → GitHub Pages
 ├── Dockerfile        # Optional containerized build (see DOCKER.md)
+├── scripts/          # notion2tex-docker.sh/.ps1 — run the published image against any file, no clone needed
 ├── n2t.sh            # Optional shell wrapper
 └── pyproject.toml
 ```

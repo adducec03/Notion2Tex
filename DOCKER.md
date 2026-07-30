@@ -5,9 +5,41 @@ This guide explains how to use Notion2Tex with Docker, avoiding the need to manu
 ## Prerequisites
 
 - **Docker** ([install](https://docs.docker.com/install/))
-- **Docker Compose** (included with Docker Desktop)
+- **Docker Compose** (included with Docker Desktop) — only needed if you're working from a clone of this repo
 
-## Quick Start
+## Just want to convert a file? (no clone needed)
+
+The image is published to GitHub Container Registry (`ghcr.io/adducec03/notion2tex`) on every push to `main`. Download the wrapper script for your OS and point it at any file on disk — nothing else to install, no repo checkout required:
+
+```bash
+curl -O https://raw.githubusercontent.com/adducec03/Notion2Tex/main/scripts/notion2tex-docker.sh
+chmod +x notion2tex-docker.sh
+./notion2tex-docker.sh /path/to/Export.zip
+```
+
+Windows (PowerShell):
+
+```powershell
+Invoke-WebRequest https://raw.githubusercontent.com/adducec03/Notion2Tex/main/scripts/notion2tex-docker.ps1 -OutFile notion2tex-docker.ps1
+./notion2tex-docker.ps1 C:\Users\me\Downloads\Export.zip
+```
+
+The script mounts the input file's own folder into the container and runs notion2tex there, so `Export.pdf`/`.tex`/`.log` land right next to `Export.zip` — no separate `exports/`/`output/` folders to manage. Extra CLI flags pass straight through:
+
+```bash
+./notion2tex-docker.sh /path/to/Export.zip --dark
+./notion2tex-docker.sh /path/to/Page.html --tex-only
+```
+
+Pin a specific version instead of `latest`:
+
+```bash
+NOTION2TEX_IMAGE=ghcr.io/adducec03/notion2tex:v1.2.3 ./notion2tex-docker.sh /path/to/Export.zip
+```
+
+The rest of this guide covers building the image yourself from a clone of the repo (useful for development, or if you've changed the Dockerfile).
+
+## Working from a clone of the repo
 
 ### 1. Build the Docker Image
 
@@ -120,6 +152,10 @@ docker run --rm \
 ```
 
 ## Troubleshooting
+
+### `docker: unauthorized` / `denied` when pulling `ghcr.io/adducec03/notion2tex`
+
+A freshly-published GHCR package defaults to **private**, even though the repo itself is public. This is fixed on the publisher's side, not the puller's: go to the GitHub profile's Packages tab → `notion2tex` → Package settings → Danger Zone → Change visibility → **Public**. Repo maintainers: this only needs doing once, right after the `Publish Docker image` workflow's first successful run.
 
 ### Image builds successfully but `notion2tex --check` fails
 

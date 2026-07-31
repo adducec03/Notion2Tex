@@ -19,7 +19,7 @@ Invoke-WebRequest https://raw.githubusercontent.com/adducec03/Notion2Tex/main/sc
 ./notion2tex-docker.ps1 C:\Users\me\Downloads\Export.zip
 ```
 
-The script downloads the image on first use and writes the PDF right next to your input file. See [DOCKER.md](https://github.com/adducec03/Notion2Tex/blob/main/DOCKER.md) for more options.
+The script downloads the image on first use and writes the PDF right next to your input file. Converting more than once? Install the script into a folder already on your `PATH` (e.g. `sudo mv notion2tex-docker.sh /usr/local/bin/notion2tex`) and `notion2tex` becomes a regular command from any directory — see [DOCKER.md](https://github.com/adducec03/Notion2Tex/blob/main/DOCKER.md) for the exact steps and more options.
 
 ## Option 2: pip
 

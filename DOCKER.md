@@ -37,6 +37,23 @@ Pin a specific version instead of `latest`:
 NOTION2TEX_IMAGE=ghcr.io/adducec03/notion2tex:v1.2.3 ./notion2tex-docker.sh /path/to/Export.zip
 ```
 
+### Use it as a plain `notion2tex` command
+
+The script doesn't care about its own name or location — install it once into a directory already on your `PATH` and it behaves exactly like a native command from then on, from any folder, with no repo, no `docker-compose`, and nothing left to download again:
+
+```bash
+sudo curl -fsSL https://raw.githubusercontent.com/adducec03/Notion2Tex/main/scripts/notion2tex-docker.sh -o /usr/local/bin/notion2tex
+sudo chmod +x /usr/local/bin/notion2tex
+```
+
+```bash
+notion2tex --config
+notion2tex Export.zip
+notion2tex Export.zip --dark
+```
+
+(No `sudo`/write access to `/usr/local/bin`? Use a directory you own that's already on `PATH`, e.g. `~/.local/bin` or `~/bin`.) Windows: save `notion2tex-docker.ps1` (e.g. as `notion2tex.ps1`) into a folder already on your `PATH`, or add a function to your PowerShell profile that calls it.
+
 ### How the published image stays up to date
 
 [`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml) rebuilds and republishes `ghcr.io/adducec03/notion2tex:latest` on every push to `main` (merged PRs included), plus versioned tags (e.g. `:1.2.3` and `:1.2`, no `v` prefix) whenever a `v1.2.3`-style git tag is pushed — the same tag that also triggers a matching PyPI release, see [Releasing a new version](https://adducec03.github.io/Notion2Tex/development/#releasing-a-new-version-pypi-docker-together) in the docs. Pushes to other branches, or open PRs that haven't merged yet, don't trigger it. Because the wrapper scripts always `docker pull` before running, you get the newest `main` automatically — no manual `docker pull`/rebuild step needed.

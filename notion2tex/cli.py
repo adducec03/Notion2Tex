@@ -215,7 +215,15 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.config:
-        return interactive.run_config_and_save(Path.cwd())
+        try:
+            return interactive.run_config_and_save(Path.cwd())
+        except EOFError:
+            console.error(
+                "--config needs a real interactive terminal. "
+                "Running in Docker? Add -it to `docker run` (docker-compose "
+                "and the notion2tex-docker.sh/.ps1 wrapper scripts already do)."
+            )
+            return 1
 
     if not args.input:
         parser.error("the following arguments are required: export.zip")

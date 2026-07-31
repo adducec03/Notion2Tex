@@ -161,13 +161,15 @@ docker run --rm \
 
 A freshly-published GHCR package defaults to **private**, even though the repo itself is public. This is fixed on the publisher's side, not the puller's: go to the GitHub profile's Packages tab → `notion2tex` → Package settings → Danger Zone → Change visibility → **Public**. Repo maintainers: this only needs doing once, right after the `Publish Docker image` workflow's first successful run.
 
-### `--config`'s interactive menu doesn't render correctly (or hangs) in Docker
+### `--config`'s interactive menu doesn't render correctly (or shows a clear "needs a real terminal" error)
 
-The arrow-key menu needs a real terminal. `docker-compose run` already allocates one (`stdin_open`/`tty` are set in `docker-compose.yml`), so it works out of the box there. Using the raw `notion2tex-docker.sh`/`.ps1` wrapper scripts or a plain `docker run` instead, add `-it` — those scripts don't pass it by default since it's unnecessary (and can misbehave in non-interactive CI contexts) for a normal conversion:
+The arrow-key menu needs a real terminal. `docker-compose run` already allocates one (`stdin_open`/`tty` are set in `docker-compose.yml`), and the `notion2tex-docker.sh`/`.ps1` wrapper scripts add `-it` automatically whenever your own shell session is interactive — so this is normally not something you need to think about. If you're scripting a plain `docker run` yourself instead of using one of those, add `-it` explicitly:
 
 ```bash
 docker run --rm -it -v "$(pwd):/data" -w /data ghcr.io/adducec03/notion2tex:latest --config
 ```
+
+Running `--config` in a genuinely non-interactive context (CI, a piped/redirected shell) fails fast with an explicit error rather than hanging — that's expected; `--config` isn't meant to run unattended.
 
 ### Image builds successfully but `notion2tex --check` fails
 

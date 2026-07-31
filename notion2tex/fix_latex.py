@@ -822,6 +822,29 @@ def _ensure_grffile(text: str) -> str:
     return text
 
 
+def _ensure_code_wrapping(text: str) -> str:
+    """
+    Long code lines overflow the page: Pandoc's own code-block environment
+    (\\DefineVerbatimEnvironment{Highlighting}{Verbatim}{...}, built on
+    fancyvrb) has no line-wrapping support at all -- confirmed by
+    inspecting fancyvrb.sty itself, which defines neither a "breaklines"
+    nor a "breakanywhere" key. Those come from fvextra, a fancyvrb
+    extension that ships inside texlive-latex-extra (already required for
+    tcolorbox/framed) -- \\IfFileExists guards against a TeX install that
+    doesn't have it, same pattern as the soul/ulem fallback in
+    _ensure_strikeout_support.
+    """
+    if "Highlighting" not in text or r"\usepackage{fvextra}" in text:
+        return text
+    block = (
+        "\\IfFileExists{fvextra.sty}{\n"
+        "  \\usepackage{fvextra}\n"
+        "  \\fvset{breaklines=true,breakanywhere=true}\n"
+        "}{}\n"
+    )
+    return text.replace(r"\begin{document}", block + r"\begin{document}", 1)
+
+
 def _ensure_callout_and_quote_support(text: str) -> str:
     """
     tcolorbox (callouts, via the Lua filter's colored box) and framed's
@@ -1165,6 +1188,74 @@ def _fix_display_math_blocks(text):
     return text, n_gather
 
 
+def _ensure_math_overflow_guard(text: str) -> str:
+    """
+    \\notionfitwidth{<math>}: shrinks *<math>* to fit \\linewidth only if
+    it's naturally wider (via \\resizebox), leaving normally-sized formulas
+    completely untouched. Uses graphicx (\\resizebox), already loaded by
+    Pandoc for images -- no new package dependency.
+    """
+    if r"\notionfitwidth" in text:
+        return text
+    macro = (
+        "\\makeatletter\n"
+        "\\newcommand{\\notionfitwidth}[1]{%\n"
+        "  \\sbox0{#1}%\n"
+        "  \\ifdim\\wd0>\\linewidth\n"
+        "    \\resizebox{\\linewidth}{!}{#1}%\n"
+        "  \\else\n"
+        "    \\usebox0\n"
+        "  \\fi\n"
+        "}\n"
+        "\\makeatother\n"
+    )
+    return text.replace(r"\begin{document}", macro + r"\begin{document}", 1)
+
+
+def _prevent_math_overflow(text: str) -> str:
+    """
+    Long formulas run off the edge of the page -- LaTeX doesn't auto-wrap
+    or auto-shrink wide math. Wrap every display math block in
+    \\notionfitwidth (defined by _ensure_math_overflow_guard).
+
+    Runs after every other function that determines display math's final
+    shape (_fix_display_math_blocks, _unwrap_align_inside_gathered,
+    _unwrap_gather_with_environments), so at this point display math is
+    always one of: plain \\[...\\], bare \\begin{align*}...\\end{align*}, or
+    bare \\begin{gather*}...\\end{gather*}. The starred (align*/gather*)
+    forms are top-level display starters and can't be nested inside
+    $...$ for boxing/measuring -- the exact rule
+    _unwrap_align_inside_gathered already encodes -- so those get rewritten
+    to their nestable equivalents (aligned/gathered) wrapped in \\[...\\]
+    first; only then can everything be boxed and measured uniformly.
+    """
+
+    def wrap_env(match: re.Match[str], nestable_name: str) -> str:
+        content = match.group(1)
+        return f"\\[\\notionfitwidth{{$\\begin{{{nestable_name}}}{content}\\end{{{nestable_name}}}$}}\\]"
+
+    text = re.sub(
+        r"\\begin\{align\*\}(.*?)\\end\{align\*\}",
+        lambda m: wrap_env(m, "aligned"),
+        text,
+        flags=re.DOTALL,
+    )
+    text = re.sub(
+        r"\\begin\{gather\*\}(.*?)\\end\{gather\*\}",
+        lambda m: wrap_env(m, "gathered"),
+        text,
+        flags=re.DOTALL,
+    )
+
+    def wrap_display(match: re.Match[str]) -> str:
+        content = match.group(1)
+        if content.lstrip().startswith(r"\notionfitwidth"):
+            return match.group(0)
+        return f"\\[\\notionfitwidth{{${content}$}}\\]"
+
+    return re.sub(r"\\\[(.*?)\\\]", wrap_display, text, flags=re.DOTALL)
+
+
 def fix_latex(
     tex_path,
     dark: bool = False,
@@ -1203,6 +1294,7 @@ def fix_latex(
         n_toc = 0
     text = _fix_figure_placement(text)
     text = _ensure_grffile(text)
+    text = _ensure_code_wrapping(text)
     text = _ensure_callout_and_quote_support(text)
 
     if not has_unicode_preamble(text):
@@ -1222,6 +1314,8 @@ def fix_latex(
     text = _unwrap_align_inside_gathered(text)
     text = _unwrap_gather_with_environments(text)
     text, n_gather = _fix_display_math_blocks(text)
+    text = _ensure_math_overflow_guard(text)
+    text = _prevent_math_overflow(text)
     text, n_titles = _fix_section_titles(text)
     text, n_bookmark = _fix_texorpdfstring_bookmarks(text)
     text = _fix_escaped_inline_math(text)

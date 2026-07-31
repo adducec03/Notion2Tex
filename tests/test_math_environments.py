@@ -1,4 +1,6 @@
 from notion2tex.fix_latex import (
+    _ensure_math_overflow_guard,
+    _prevent_math_overflow,
     _strip_blank_lines_in_math_environments,
     _unwrap_align_inside_gathered,
 )
@@ -122,3 +124,55 @@ def test_strip_blank_lines_idempotent():
     )
     once = _strip_blank_lines_in_math_environments(text)
     assert _strip_blank_lines_in_math_environments(once) == once
+
+
+def test_math_overflow_guard_inserts_macro():
+    text = "\\begin{document}\nHello\n\\end{document}\n"
+    out = _ensure_math_overflow_guard(text)
+    assert r"\newcommand{\notionfitwidth}[1]" in out
+    assert out.index(r"\notionfitwidth") < out.index(r"\begin{document}")
+
+
+def test_math_overflow_guard_idempotent():
+    text = "\\begin{document}\nHello\n\\end{document}\n"
+    once = _ensure_math_overflow_guard(text)
+    assert _ensure_math_overflow_guard(once) == once
+
+
+def test_prevent_math_overflow_wraps_plain_display_math():
+    text = r"\[x + y = z\]"
+    out = _prevent_math_overflow(text)
+    assert out == r"\[\notionfitwidth{$x + y = z$}\]"
+
+
+def test_prevent_math_overflow_converts_bare_align_star():
+    text = r"\begin{align*}a &= b\\ c &= d\end{align*}"
+    out = _prevent_math_overflow(text)
+    assert r"\begin{align*}" not in out
+    assert r"\[\notionfitwidth{$\begin{aligned}a &= b\\ c &= d\end{aligned}$}\]" == out
+
+
+def test_prevent_math_overflow_converts_bare_gather_star():
+    text = r"\begin{gather*}a=b\\ c=d\end{gather*}"
+    out = _prevent_math_overflow(text)
+    assert r"\begin{gather*}" not in out
+    assert r"\[\notionfitwidth{$\begin{gathered}a=b\\ c=d\end{gathered}$}\]" == out
+
+
+def test_prevent_math_overflow_does_not_double_wrap():
+    text = r"\[\notionfitwidth{$x+y=z$}\]"
+    assert _prevent_math_overflow(text) == text
+
+
+def test_prevent_math_overflow_leaves_prose_untouched():
+    text = "Some text before.\n\n\\[a=b\\]\n\nSome text after."
+    out = _prevent_math_overflow(text)
+    assert "Some text before." in out
+    assert "Some text after." in out
+    assert r"\[\notionfitwidth{$a=b$}\]" in out
+
+
+def test_prevent_math_overflow_idempotent():
+    text = r"\[a+b=c\] and \begin{align*}x&=y\end{align*}"
+    once = _prevent_math_overflow(text)
+    assert _prevent_math_overflow(once) == once

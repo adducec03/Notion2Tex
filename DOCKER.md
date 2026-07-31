@@ -37,6 +37,8 @@ Pin a specific version instead of `latest`:
 NOTION2TEX_IMAGE=ghcr.io/adducec03/notion2tex:v1.2.3 ./notion2tex-docker.sh /path/to/Export.zip
 ```
 
+`notion2tex --config` opens an interactive menu for creating, editing, and switching between named profiles (see [Usage](https://adducec03.github.io/Notion2Tex/usage/) for the full menu). A container's own filesystem is thrown away the moment it exits, so the wrapper scripts always mount a host directory — `~/.config/notion2tex` (`%APPDATA%\notion2tex` on Windows) — onto the container path profiles are saved to, and create it on first use if it doesn't exist yet. That's the *same* path a non-Docker (`pip install`) install of notion2tex would use, so profiles are shared between install methods, and a profile created via `--config` in one container run is still there the next time you run the script.
+
 ### Use it as a plain `notion2tex` command
 
 The script doesn't care about its own name or location — install it once into a directory already on your `PATH` and it behaves exactly like a native command from then on, from any folder, with no repo, no `docker-compose`, and nothing left to download again:
@@ -250,6 +252,7 @@ texlive-latex-minimal \
 The `docker-compose.yml` defines a single `notion2tex` service with:
 - Auto-building from Dockerfile
 - Volume mounts for inputs (`./exports`) and outputs (`./output`)
+- A volume mount for `--config` profiles (`~/.config/notion2tex` on the host, same as the wrapper scripts use) so they persist across `docker-compose run` invocations
 - Interactive TTY for CLI arguments
 
 To modify working directory or add environment variables, edit `docker-compose.yml`.

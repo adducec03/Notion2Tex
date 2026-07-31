@@ -9,6 +9,11 @@ services:
       # Mount current directory to /data for accessing ZIP/HTML files and outputting PDFs
       - ./exports:/app/exports
       - ./output:/app/output
+      # --config's saved profiles need to survive past a container's life
+      # (its own filesystem is thrown away on exit) -- mount the same host
+      # directory the wrapper scripts / a local install would use, onto
+      # the container path the Dockerfile exports as XDG_CONFIG_HOME.
+      - ${HOME}/.config/notion2tex:/config/notion2tex
     working_dir: /app/exports
     # Run with arguments: e.g., docker-compose run notion2tex Export.zip
     # Or: docker-compose run notion2tex --help

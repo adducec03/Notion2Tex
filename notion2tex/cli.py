@@ -7,18 +7,48 @@ import sys
 from pathlib import Path
 
 from notion2tex import __version__
+from notion2tex import config_file
+from notion2tex import interactive
 from notion2tex.console import console
 from notion2tex.pipeline import convert, missing_tools
+
+# Keys that come from notion2tex.toml and can be overridden by an explicit
+# CLI flag. Booleans use "or" (a config default can only be turned further
+# on from the CLI, store_true flags have no way to say "explicitly off");
+# everything else uses "CLI value if given, else the config's".
+_CONFIG_BOOL_KEYS = ("book", "dark", "offline")
+_CONFIG_VALUE_KEYS = (
+    "lang",
+    "output",
+    "font",
+    "font_size",
+    "paper",
+    "margins",
+    "accent_color",
+)
 
 
 def _accent_color_type(value: str) -> str:
     """argparse type=: 6 hex digits, optional leading '#'."""
-    digits = value.lstrip("#")
-    if len(digits) != 6 or any(c not in "0123456789abcdefABCDEF" for c in digits):
-        raise argparse.ArgumentTypeError(
-            f"invalid hex color: {value!r} (expected 6 hex digits, e.g. 2E86AB or #2E86AB)"
-        )
-    return digits.upper()
+    try:
+        return config_file.validate_accent_color(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+
+
+def _merge_with_config(args: dict, config: dict) -> dict:
+    """
+    Layer a notion2tex.toml config dict under explicit CLI arg values.
+    *args* and the return value use the same key names as _CONFIG_BOOL_KEYS
+    + _CONFIG_VALUE_KEYS (a plain dict, not argparse.Namespace, so this is
+    testable without building a real parser).
+    """
+    merged = dict(args)
+    for key in _CONFIG_BOOL_KEYS:
+        merged[key] = bool(args.get(key)) or bool(config.get(key, False))
+    for key in _CONFIG_VALUE_KEYS:
+        merged[key] = args.get(key) if args.get(key) is not None else config.get(key)
+    return merged
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -50,6 +80,17 @@ def _build_parser() -> argparse.ArgumentParser:
         "--check",
         action="store_true",
         help="Verify that pandoc and pdflatex are available, then exit",
+    )
+    parser.add_argument(
+        "--config",
+        action="store_true",
+        help=(
+            "Open an interactive menu to choose export defaults (book, "
+            "lang, dark, offline, output, font, paper, margins, accent "
+            f"color) and save them to ./{config_file.CONFIG_FILENAME}, "
+            "then exit. Picked up automatically on later runs from the "
+            "same directory; explicit CLI flags still override it."
+        ),
     )
     parser.add_argument(
         "--tex-only",
@@ -173,10 +214,19 @@ def main(argv: list[str] | None = None) -> int:
         console.success("pandoc and pdflatex are available")
         return 0
 
+    if args.config:
+        return interactive.run_config_and_save(Path.cwd())
+
     if not args.input:
         parser.error("the following arguments are required: export.zip")
 
     extract_dir = Path(args.extract_dir) if args.extract_dir else None
+
+    opts = {key: getattr(args, key) for key in _CONFIG_BOOL_KEYS + _CONFIG_VALUE_KEYS}
+    config_path = config_file.find_config(Path.cwd())
+    if config_path is not None:
+        console.detail(f"Using defaults from {config_path}")
+        opts = _merge_with_config(opts, config_file.load_config(config_path))
 
     try:
         convert(
@@ -184,16 +234,16 @@ def main(argv: list[str] | None = None) -> int:
             extract_dir=extract_dir,
             tex_only=args.tex_only,
             quiet=not args.verbose,
-            dark=args.dark,
-            book=args.book,
-            lang=args.lang,
-            offline=args.offline,
-            output=args.output,
-            font=args.font,
-            font_size=args.font_size,
-            paper=args.paper,
-            margins=args.margins,
-            accent_color=args.accent_color,
+            dark=opts["dark"],
+            book=opts["book"],
+            lang=opts["lang"],
+            offline=opts["offline"],
+            output=opts["output"],
+            font=opts["font"],
+            font_size=opts["font_size"],
+            paper=opts["paper"],
+            margins=opts["margins"],
+            accent_color=opts["accent_color"],
         )
     except (FileNotFoundError, RuntimeError, ValueError) as exc:
         console.error(str(exc))

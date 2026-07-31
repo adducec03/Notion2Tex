@@ -1,6 +1,6 @@
 import pytest
 
-from notion2tex.cli import _accent_color_type, _build_parser
+from notion2tex.cli import _accent_color_type, _build_parser, _merge_with_config
 
 
 def test_book_flag_defaults_to_false():
@@ -112,3 +112,70 @@ def test_accent_color_type_rejects_invalid():
     for bad in ("zzzzzz", "2E86A", "2E86ABC", ""):
         with pytest.raises(argparse.ArgumentTypeError):
             _accent_color_type(bad)
+
+
+def test_config_flag_defaults_to_false():
+    args = _build_parser().parse_args(["export.zip"])
+    assert args.config is False
+
+
+def test_config_flag_enabled():
+    args = _build_parser().parse_args(["--config"])
+    assert args.config is True
+
+
+def test_config_flag_works_without_input():
+    # --config is a standalone action, like --check: no export.zip required.
+    args = _build_parser().parse_args(["--config"])
+    assert args.input is None
+
+
+_EMPTY_ARGS = {
+    "book": False,
+    "dark": False,
+    "offline": False,
+    "lang": None,
+    "output": None,
+    "font": None,
+    "font_size": None,
+    "paper": None,
+    "margins": None,
+    "accent_color": None,
+}
+
+
+def test_merge_config_fills_in_when_cli_absent():
+    merged = _merge_with_config(_EMPTY_ARGS, {"book": True, "lang": "it"})
+    assert merged["book"] is True
+    assert merged["lang"] == "it"
+
+
+def test_merge_config_cli_flag_overrides_value_option():
+    args = {**_EMPTY_ARGS, "lang": "en"}
+    merged = _merge_with_config(args, {"lang": "it"})
+    assert merged["lang"] == "en"
+
+
+def test_merge_config_boolean_or_semantics():
+    # config says dark=True, CLI didn't pass --dark -> still dark
+    merged = _merge_with_config(_EMPTY_ARGS, {"dark": True})
+    assert merged["dark"] is True
+
+    # CLI passed --dark, config doesn't mention it -> still dark
+    args = {**_EMPTY_ARGS, "dark": True}
+    merged = _merge_with_config(args, {})
+    assert merged["dark"] is True
+
+
+def test_merge_config_missing_keys_default_to_none_or_false():
+    merged = _merge_with_config(_EMPTY_ARGS, {})
+    assert merged["book"] is False
+    assert merged["lang"] is None
+
+
+def test_merge_config_does_not_mutate_input_dicts():
+    args = dict(_EMPTY_ARGS)
+    config = {"book": True}
+    _merge_with_config(args, config)
+    assert args == _EMPTY_ARGS
+    assert config == {"book": True}

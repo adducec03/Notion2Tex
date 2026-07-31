@@ -112,3 +112,16 @@ Combine freely, e.g.:
 ```bash
 notion2tex Export.zip --book --lang it --font serif --paper a4 --accent-color 2E86AB
 ```
+
+### Save your defaults
+
+Typing all of the above on every run gets old fast. `notion2tex --config` opens an interactive menu — arrow keys to pick, Enter to confirm — covering every option above, then saves your choices to `notion2tex.toml` in the current directory:
+
+```bash
+notion2tex --config
+```
+
+From then on, running `notion2tex Export.zip` in that same directory picks the file up automatically (you'll see `Using defaults from ./notion2tex.toml` in the output) — no flags needed. An explicit CLI flag on a given run still wins over whatever's in the file, so you can override a saved default for one-off conversions without touching the file. Re-run `--config` any time to change your saved defaults (it'll ask before overwriting).
+
+!!! note "Boolean options and the config file"
+    `--book`/`--dark`/`--offline` can only be turned *further on* from the CLI when the config file already has them on — there's currently no CLI flag to force one back off for a single run if it's saved as on. Edit or regenerate `notion2tex.toml` (via `--config`) to change those.

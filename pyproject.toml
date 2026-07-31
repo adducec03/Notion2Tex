@@ -30,6 +30,8 @@ classifiers = [
 dependencies = [
     "beautifulsoup4>=4.12",
     "emoji>=2.0",
+    "questionary>=2.0",
+    "tomli>=2.0; python_version < '3.11'",
 ]
 
 [project.urls]

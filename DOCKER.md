@@ -161,6 +161,14 @@ docker run --rm \
 
 A freshly-published GHCR package defaults to **private**, even though the repo itself is public. This is fixed on the publisher's side, not the puller's: go to the GitHub profile's Packages tab → `notion2tex` → Package settings → Danger Zone → Change visibility → **Public**. Repo maintainers: this only needs doing once, right after the `Publish Docker image` workflow's first successful run.
 
+### `--config`'s interactive menu doesn't render correctly (or hangs) in Docker
+
+The arrow-key menu needs a real terminal. `docker-compose run` already allocates one (`stdin_open`/`tty` are set in `docker-compose.yml`), so it works out of the box there. Using the raw `notion2tex-docker.sh`/`.ps1` wrapper scripts or a plain `docker run` instead, add `-it` — those scripts don't pass it by default since it's unnecessary (and can misbehave in non-interactive CI contexts) for a normal conversion:
+
+```bash
+docker run --rm -it -v "$(pwd):/data" -w /data ghcr.io/adducec03/notion2tex:latest --config
+```
+
 ### Image builds successfully but `notion2tex --check` fails
 
 This means dependencies are missing. Verify the Dockerfile installs:

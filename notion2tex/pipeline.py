@@ -87,6 +87,11 @@ def convert(
     lang: str | None = None,
     offline: bool = False,
     output: str | Path | None = None,
+    font: str | None = None,
+    font_size: str | None = None,
+    paper: str | None = None,
+    margins: str | None = None,
+    accent_color: str | None = None,
 ) -> BuildResult:
     """
     Run clean → pandoc → fix_latex → pdflatex (×2).
@@ -142,7 +147,17 @@ def convert(
 
     console.step(3, total_steps, "Fix LaTeX")
     with console.task("Applying LaTeX fixes"):
-        fix_latex(str(tex), dark=dark, book=book, lang=lang)
+        fix_latex(
+            str(tex),
+            dark=dark,
+            book=book,
+            lang=lang,
+            font=font,
+            font_size=font_size,
+            paper=paper,
+            margins=margins,
+            accent_color=accent_color,
+        )
 
     if tex_only:
         removed = cleanup_build_artifacts(work_dir, base)

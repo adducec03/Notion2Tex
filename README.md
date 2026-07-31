@@ -6,7 +6,7 @@
 
 Convert a **Notion HTML export** into a printable **PDF** with correct heading hierarchy, math, tables, and images.
 
-Faithful to Notion's own formatting: colored/highlighted text, underline/strikethrough, multi-column layouts, callout and quote blocks, syntax-highlighted code, and image alignment all carry over. A few opt-in flags cover the rest: `--book` adds a designed cover page, table of contents, chapter page breaks, and a running header (handy for long course notes); `--lang {en,it}` translates generated headings and fixes hyphenation; `--dark` renders a dark-mode PDF.
+Faithful to Notion's own formatting: colored/highlighted text, underline/strikethrough, multi-column layouts, callout and quote blocks, syntax-highlighted code, and image alignment all carry over. A few opt-in flags cover the rest: `--book` adds a designed cover page, table of contents, chapter page breaks, and a running header (handy for long course notes); `--lang {en,it}` translates generated headings and fixes hyphenation; `--dark` renders a dark-mode PDF; `--font`/`--font-size`/`--paper`/`--margins`/`--accent-color` adjust appearance (page size defaults to A4, deterministically, either way).
 
 **Full documentation:** [adducec03.github.io/Notion2Tex](https://adducec03.github.io/Notion2Tex/) · [PyPI](https://pypi.org/project/notion2tex/)
 
@@ -86,6 +86,7 @@ notion2tex Export.zip --lang it        # translated headings + hyphenation ({en,
 notion2tex Export.zip --dark           # dark gray page, light text/colors
 notion2tex Export.zip --offline        # zero network calls, skips linked images
 notion2tex Export.zip --output ~/Notes.pdf   # custom output path for the PDF
+notion2tex Export.zip --font serif --font-size 12 --paper letter --margins wide --accent-color 2E86AB
 ```
 
 See [Usage](https://adducec03.github.io/Notion2Tex/usage/) and [Troubleshooting](https://adducec03.github.io/Notion2Tex/troubleshooting/) on the docs site.

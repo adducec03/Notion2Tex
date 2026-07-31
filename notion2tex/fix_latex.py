@@ -719,6 +719,96 @@ def _ensure_language_support(text: str, lang: str | None) -> str:
     )
 
 
+_FONT_PACKAGES = {
+    "serif": "\\usepackage{mathptmx}\n",
+    "sans": "\\usepackage[scaled]{helvet}\n\\renewcommand{\\familydefault}{\\sfdefault}\n",
+}
+
+
+def _apply_font(text: str, font: str | None) -> str:
+    """
+    Layer a font package on top of Pandoc's default \\usepackage{lmodern}.
+    Loading mathptmx/helvet *after* lmodern is the standard, safe way to
+    override just the roman/sans family (lmodern's own math/mono stay) --
+    no *font* leaves lmodern as the only font, today's look.
+    """
+    if font is None:
+        return text
+    block = _FONT_PACKAGES[font]
+    if block in text:
+        return text
+    if r"\usepackage{lmodern}" in text:
+        return text.replace(r"\usepackage{lmodern}", r"\usepackage{lmodern}" + "\n" + block, 1)
+    return text.replace(r"\begin{document}", block + r"\begin{document}", 1)
+
+
+def _apply_font_size(text: str, font_size: str | None) -> str:
+    """
+    Insert 10pt/11pt/12pt into \\documentclass[...]{article}'s (currently
+    empty) options. No *font_size* leaves LaTeX's own 10pt default in
+    place -- identical output to explicitly passing "10".
+    """
+    if font_size is None:
+        return text
+
+    def repl(match: re.Match[str]) -> str:
+        existing = match.group(1).strip()
+        opts = f"{existing},{font_size}pt" if existing else f"{font_size}pt"
+        return f"\\documentclass[{opts}]"
+
+    return re.sub(r"\\documentclass\[([^\]]*)\]", repl, text, count=1)
+
+
+_PAPER_OPTIONS = {"a4": "a4paper", "letter": "letterpaper"}
+_MARGIN_VALUES = {"narrow": "0.75in", "normal": "1in", "wide": "1.5in"}
+
+
+def _ensure_page_geometry(text: str, paper: str | None, margins: str | None) -> str:
+    """
+    Always set an explicit page size/margins via the geometry package --
+    unlike the other appearance options, this one isn't "off unless
+    requested". Without it, the page size silently follows whatever the
+    local TeX install's ambient default paper is (A4 on most European
+    installs, Letter on most US ones): two people running the identical
+    command could get differently-sized PDFs. Defaults: A4, 1in margins.
+    """
+    if r"{geometry}" in text:
+        return text
+    paper_opt = _PAPER_OPTIONS[paper or "a4"]
+    margin_value = _MARGIN_VALUES[margins or "normal"]
+    line = f"\\usepackage[{paper_opt},margin={margin_value}]{{geometry}}\n"
+    return text.replace(r"\begin{document}", line + r"\begin{document}", 1)
+
+
+def _apply_accent_color(text: str, accent_color: str | None) -> str:
+    """
+    Override the link color (light-mode blue, or --dark's own link color)
+    with a user-chosen accent. Must run after both _enable_hyperref_links
+    and _apply_dark_theme so it wins over whichever of those set the
+    ambient link color last. No *accent_color* leaves those untouched.
+    """
+    if accent_color is None:
+        return text
+    if "notionaccent" in text:
+        return text
+    text = text.replace(
+        r"\usepackage{xcolor}",
+        "\\usepackage{xcolor}\n" f"\\definecolor{{notionaccent}}{{HTML}}{{{accent_color}}}\n",
+        1,
+    )
+    text = text.replace(
+        "linkcolor=blue!70!black,\n  urlcolor=blue",
+        "linkcolor=notionaccent,\n  urlcolor=notionaccent",
+        1,
+    )
+    text = text.replace(
+        "linkcolor=notiondarklink,\n  urlcolor=notiondarklink",
+        "linkcolor=notionaccent,\n  urlcolor=notionaccent",
+        1,
+    )
+    return text
+
+
 def _ensure_grffile(text: str) -> str:
     """Allow spaces and commas in image paths."""
     if r"\usepackage{grffile}" in text:
@@ -1075,7 +1165,17 @@ def _fix_display_math_blocks(text):
     return text, n_gather
 
 
-def fix_latex(tex_path, dark: bool = False, book: bool = False, lang: str | None = None):
+def fix_latex(
+    tex_path,
+    dark: bool = False,
+    book: bool = False,
+    lang: str | None = None,
+    font: str | None = None,
+    font_size: str | None = None,
+    paper: str | None = None,
+    margins: str | None = None,
+    accent_color: str | None = None,
+):
     from notion2tex.console import console
 
     try:
@@ -1088,6 +1188,9 @@ def fix_latex(tex_path, dark: bool = False, book: bool = False, lang: str | None
     text = _fix_literal_backslash_n_in_preamble(text)
     text = _ensure_strikeout_support(text)
     text = _ensure_language_support(text, lang)
+    text = _apply_font(text, font)
+    text = _apply_font_size(text, font_size)
+    text = _ensure_page_geometry(text, paper, margins)
     text = _enable_section_numbering(text)
     if book:
         text = _unnumbered_cover_section(text)
@@ -1129,6 +1232,7 @@ def fix_latex(tex_path, dark: bool = False, book: bool = False, lang: str | None
 
     if dark:
         text = _apply_dark_theme(text)
+    text = _apply_accent_color(text, accent_color)
 
     with open(tex_path, "w", encoding="utf-8") as f:
         f.write(text)

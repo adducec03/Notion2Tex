@@ -11,6 +11,16 @@ from notion2tex.console import console
 from notion2tex.pipeline import convert, missing_tools
 
 
+def _accent_color_type(value: str) -> str:
+    """argparse type=: 6 hex digits, optional leading '#'."""
+    digits = value.lstrip("#")
+    if len(digits) != 6 or any(c not in "0123456789abcdefABCDEF" for c in digits):
+        raise argparse.ArgumentTypeError(
+            f"invalid hex color: {value!r} (expected 6 hex digits, e.g. 2E86AB or #2E86AB)"
+        )
+    return digits.upper()
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="notion2tex",
@@ -99,6 +109,45 @@ def _build_parser() -> argparse.ArgumentParser:
             "are created if needed."
         ),
     )
+    parser.add_argument(
+        "--font",
+        choices=["serif", "sans"],
+        default=None,
+        help="Body font family. Unset by default (Latin Modern, today's look).",
+    )
+    parser.add_argument(
+        "--font-size",
+        choices=["10", "11", "12"],
+        default=None,
+        metavar="{10,11,12}",
+        help="Base font size in pt. Unset by default (LaTeX's own 10pt).",
+    )
+    parser.add_argument(
+        "--paper",
+        choices=["a4", "letter"],
+        default=None,
+        help=(
+            "Page size. Default: a4 (always set explicitly, even if unset "
+            "here — otherwise page size silently follows the local TeX "
+            "install's ambient default, which varies by machine)."
+        ),
+    )
+    parser.add_argument(
+        "--margins",
+        choices=["narrow", "normal", "wide"],
+        default=None,
+        help="Page margins. Default: normal (1in).",
+    )
+    parser.add_argument(
+        "--accent-color",
+        type=_accent_color_type,
+        default=None,
+        metavar="HEX",
+        help=(
+            "Custom link color, e.g. 2E86AB or #2E86AB. Unset by default "
+            "(today's blue, or --dark's own link color)."
+        ),
+    )
     return parser
 
 
@@ -140,6 +189,11 @@ def main(argv: list[str] | None = None) -> int:
             lang=args.lang,
             offline=args.offline,
             output=args.output,
+            font=args.font,
+            font_size=args.font_size,
+            paper=args.paper,
+            margins=args.margins,
+            accent_color=args.accent_color,
         )
     except (FileNotFoundError, RuntimeError, ValueError) as exc:
         console.error(str(exc))

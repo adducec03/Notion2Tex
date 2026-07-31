@@ -39,6 +39,9 @@ notion2tex Export.zip --lang it       # translated headings + hyphenation
 notion2tex Export.zip --dark          # dark-mode PDF
 notion2tex Export.zip --offline       # no network calls at all (see below)
 notion2tex Export.zip --output ~/Notes.pdf   # custom output path (see below)
+notion2tex Export.zip --font serif --font-size 12   # appearance (see below)
+notion2tex Export.zip --paper letter --margins wide
+notion2tex Export.zip --accent-color 2E86AB
 notion2tex Export.zip --tex-only      # generate the .tex without building a PDF
 notion2tex Export.zip -v              # show full compiler output
 notion2tex --help                     # everything else
@@ -90,4 +93,22 @@ By default the PDF is written next to the input file. `--output` moves the finis
 
 ```bash
 notion2tex Export.zip --output ~/Documents/Notes.pdf
+```
+
+### Appearance
+
+```bash
+notion2tex Export.zip --font serif           # {serif,sans}; unset = Latin Modern (default look)
+notion2tex Export.zip --font-size 12         # {10,11,12}; unset = LaTeX's own 10pt
+notion2tex Export.zip --paper letter         # {a4,letter}; default: a4
+notion2tex Export.zip --margins wide         # {narrow,normal,wide}; default: normal (1in)
+notion2tex Export.zip --accent-color 2E86AB  # custom link color, 6 hex digits (# optional)
+```
+
+`--paper`/`--margins` are always applied, even without passing them — the page is explicitly A4 with 1in margins by default. Without this, page size would silently depend on the local TeX install's own default (A4 in most of Europe, Letter in the US), so the same command could produce differently-sized PDFs on different machines. `--font`, `--font-size`, and `--accent-color` stay off unless requested.
+
+Combine freely, e.g.:
+
+```bash
+notion2tex Export.zip --book --lang it --font serif --paper a4 --accent-color 2E86AB
 ```

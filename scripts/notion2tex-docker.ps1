@@ -16,7 +16,7 @@
 
 .EXAMPLE
   ./notion2tex-docker.ps1 --config
-  # Interactive menu; writes notion2tex.toml in the current directory.
+  # Interactive menu; saves a profile.
 
 .EXAMPLE
   ./notion2tex-docker.ps1 --check
@@ -40,6 +40,13 @@ $ErrorActionPreference = "Stop"
 
 $Image = if ($env:NOTION2TEX_IMAGE) { $env:NOTION2TEX_IMAGE } else { "ghcr.io/adducec03/notion2tex:latest" }
 
+# --config's saved profiles need to survive past a single `docker run
+# --rm` (the container's own filesystem is thrown away on exit) -- mount
+# the same host directory a local (non-Docker) install would use, onto
+# the container path the Dockerfile exports as XDG_CONFIG_HOME.
+$ConfigHostDir = Join-Path $env:APPDATA "notion2tex"
+New-Item -ItemType Directory -Force -Path $ConfigHostDir | Out-Null
+
 # --config's arrow-key menu (and any other interactive prompt) needs a
 # real terminal to render -- added only when the host session actually is
 # one, so this still works fine in non-interactive/piped contexts.
@@ -49,8 +56,8 @@ if (-not [Console]::IsInputRedirected -and -not [Console]::IsOutputRedirected) {
 }
 
 # Standalone actions that take no input file: mount the current directory
-# instead of a file's parent (e.g. so --config writes notion2tex.toml
-# here, and a later plain `notion2tex-docker.ps1 Export.zip` picks it up).
+# instead of a file's parent (e.g. so a plain `notion2tex-docker.ps1
+# Export.zip` run afterward has the same working directory feel).
 $StandaloneFlags = @("--config", "--check", "--version", "--help", "-h")
 if ([string]::IsNullOrEmpty($InputPath) -or $StandaloneFlags -contains $InputPath) {
     $PassthroughArgs = @()
@@ -59,6 +66,7 @@ if ([string]::IsNullOrEmpty($InputPath) -or $StandaloneFlags -contains $InputPat
 
     docker run --rm @TtyFlag --pull always `
         -v "${PWD}:/data" `
+        -v "${ConfigHostDir}:/config/notion2tex" `
         -w /data `
         $Image `
         @PassthroughArgs
@@ -76,6 +84,7 @@ $InputName = Split-Path -Leaf $ResolvedPath
 
 docker run --rm --pull always `
     -v "${InputDir}:/data" `
+    -v "${ConfigHostDir}:/config/notion2tex" `
     -w /data `
     $Image `
     $InputName @ExtraArgs

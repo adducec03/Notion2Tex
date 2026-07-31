@@ -58,7 +58,15 @@ COPY pyproject.toml README.md LICENSE ./
 
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    XDG_CONFIG_HOME=/config
+
+# --config's saved profiles live at $XDG_CONFIG_HOME/notion2tex -- an
+# explicit, stable mount point regardless of which user the container
+# runs as (root here, unset on purpose), rather than relying on $HOME.
+# The wrapper scripts/docker-compose.yml mount a host directory here so
+# profiles created through Docker survive past a single `docker run --rm`.
+RUN mkdir -p /config
 
 # Verifica l'installazione
 RUN notion2tex --check

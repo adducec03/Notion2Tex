@@ -1,6 +1,10 @@
+from pathlib import Path
+from unittest.mock import patch
+
 import pytest
 
-from notion2tex.cli import _accent_color_type, _build_parser, _merge_with_config
+from notion2tex import config_file
+from notion2tex.cli import _accent_color_type, _build_parser, _merge_with_config, main
 
 
 def test_book_flag_defaults_to_false():
@@ -179,3 +183,78 @@ def test_merge_config_does_not_mutate_input_dicts():
     _merge_with_config(args, config)
     assert args == _EMPTY_ARGS
     assert config == {"book": True}
+
+
+def test_profile_flag_defaults_to_none():
+    args = _build_parser().parse_args(["export.zip"])
+    assert args.profile is None
+
+
+def test_profile_flag_accepts_name():
+    args = _build_parser().parse_args(["export.zip", "--profile", "book"])
+    assert args.profile == "book"
+
+
+@pytest.fixture
+def isolated_config_dir(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    yield tmp_path / "notion2tex"
+
+
+def test_main_uses_active_profile_when_no_explicit_profile_flag(
+    tmp_path: Path, isolated_config_dir, monkeypatch
+):
+    config_file.write_config(config_file.profile_path("book"), {"book": True, "lang": "it"})
+    config_file.set_active_profile("book")
+    html = tmp_path / "page.html"
+    html.write_text("<html></html>", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    with patch("notion2tex.cli.convert") as mock_convert:
+        main(["page.html", "--tex-only"])
+
+    kwargs = mock_convert.call_args.kwargs
+    assert kwargs["book"] is True
+    assert kwargs["lang"] == "it"
+
+
+def test_main_explicit_profile_flag_overrides_active(
+    tmp_path: Path, isolated_config_dir, monkeypatch
+):
+    config_file.write_config(config_file.profile_path("book"), {"book": True})
+    config_file.write_config(config_file.profile_path("plain"), {"dark": True})
+    config_file.set_active_profile("book")
+    html = tmp_path / "page.html"
+    html.write_text("<html></html>", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    with patch("notion2tex.cli.convert") as mock_convert:
+        main(["page.html", "--tex-only", "--profile", "plain"])
+
+    kwargs = mock_convert.call_args.kwargs
+    assert kwargs["book"] is False
+    assert kwargs["dark"] is True
+
+
+def test_main_no_active_profile_uses_builtin_defaults(
+    tmp_path: Path, isolated_config_dir, monkeypatch
+):
+    html = tmp_path / "page.html"
+    html.write_text("<html></html>", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    with patch("notion2tex.cli.convert") as mock_convert:
+        main(["page.html", "--tex-only"])
+
+    kwargs = mock_convert.call_args.kwargs
+    assert kwargs["book"] is False
+    assert kwargs["lang"] is None
+
+
+def test_main_unknown_profile_name_errors(tmp_path: Path, isolated_config_dir, monkeypatch):
+    html = tmp_path / "page.html"
+    html.write_text("<html></html>", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(SystemExit):
+        main(["page.html", "--tex-only", "--profile", "does-not-exist"])

@@ -85,11 +85,23 @@ def _build_parser() -> argparse.ArgumentParser:
         "--config",
         action="store_true",
         help=(
-            "Open an interactive menu to choose export defaults (book, "
-            "lang, dark, offline, output, font, paper, margins, accent "
-            f"color) and save them to ./{config_file.CONFIG_FILENAME}, "
-            "then exit. Picked up automatically on later runs from the "
-            "same directory; explicit CLI flags still override it."
+            "Open an interactive menu to create/use/edit/delete named "
+            "profiles of export defaults (book, lang, dark, offline, "
+            "output, font, paper, margins, accent color), stored in a "
+            "global config directory (~/.config/notion2tex, or "
+            "%%APPDATA%%\\notion2tex on Windows), then exit. The active "
+            "profile applies automatically on later runs; explicit CLI "
+            "flags still override it. See --profile to use one without "
+            "changing which is active."
+        ),
+    )
+    parser.add_argument(
+        "--profile",
+        metavar="NAME",
+        default=None,
+        help=(
+            "Use this saved profile for this run only, instead of "
+            "whichever one is currently active (see --config)."
         ),
     )
     parser.add_argument(
@@ -216,7 +228,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.config:
         try:
-            return interactive.run_config_and_save(Path.cwd())
+            return interactive.run_config_command()
         except EOFError:
             console.error(
                 "--config needs a real interactive terminal. "
@@ -231,10 +243,13 @@ def main(argv: list[str] | None = None) -> int:
     extract_dir = Path(args.extract_dir) if args.extract_dir else None
 
     opts = {key: getattr(args, key) for key in _CONFIG_BOOL_KEYS + _CONFIG_VALUE_KEYS}
-    config_path = config_file.find_config(Path.cwd())
-    if config_path is not None:
-        console.detail(f"Using defaults from {config_path}")
-        opts = _merge_with_config(opts, config_file.load_config(config_path))
+    profile_name = args.profile or config_file.get_active_profile()
+    if profile_name is not None:
+        resolved_path = config_file.profile_path(profile_name)
+        if not resolved_path.is_file():
+            parser.error(f'no such profile: "{profile_name}" ({resolved_path})')
+        console.detail(f'Using profile "{profile_name}" ({resolved_path})')
+        opts = _merge_with_config(opts, config_file.load_config(resolved_path))
 
     try:
         convert(

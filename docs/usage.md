@@ -115,13 +115,24 @@ notion2tex Export.zip --book --lang it --font serif --paper a4 --accent-color 2E
 
 ### Save your defaults
 
-Typing all of the above on every run gets old fast. `notion2tex --config` opens an interactive menu — arrow keys to pick, Enter to confirm — covering every option above, then saves your choices to `notion2tex.toml` in the current directory:
+Typing all of the above on every run gets old fast. `notion2tex --config` opens an interactive menu — arrow keys to pick, Enter to confirm — for creating, editing, deleting, and switching between named **profiles**:
 
 ```bash
 notion2tex --config
 ```
 
-From then on, running `notion2tex Export.zip` in that same directory picks the file up automatically (you'll see `Using defaults from ./notion2tex.toml` in the output) — no flags needed. An explicit CLI flag on a given run still wins over whatever's in the file, so you can override a saved default for one-off conversions without touching the file. Re-run `--config` any time to change your saved defaults (it'll ask before overwriting).
+Profiles are saved in a single global directory (`~/.config/notion2tex` on macOS/Linux, `%APPDATA%\notion2tex` on Windows) — never in whatever folder you happen to run the command from. The menu adapts to what you have:
 
-!!! note "Boolean options and the config file"
-    `--book`/`--dark`/`--offline` can only be turned *further on* from the CLI when the config file already has them on — there's currently no CLI flag to force one back off for a single run if it's saved as on. Edit or regenerate `notion2tex.toml` (via `--config`) to change those.
+- **No profiles yet** — just Create / Cancel.
+- **One or more profiles** — Use an existing one, Create a new one, Edit an existing one, Delete one, or Clear the active profile.
+
+The menu's header always shows which profile is currently active (e.g. `Active profile: book (~/.config/notion2tex/book.toml)`, or `Active profile: none (built-in defaults)`), so it's always clear what a plain `notion2tex Export.zip` will use. Marking a profile "active" (offered right after creating one, or via "Use an existing profile") makes every future run use it automatically — you'll see `Using profile "book" (...)` in the output. If no profile is active, conversions fall back to the built-in standard defaults, same as before this feature existed.
+
+An explicit CLI flag on a given run still wins over whatever's in the active profile, so you can override a saved default for one-off conversions without touching it. To use a specific profile for a single run without changing which one is active, pass `--profile NAME`:
+
+```bash
+notion2tex Export.zip --profile book
+```
+
+!!! note "Boolean options and profiles"
+    `--book`/`--dark`/`--offline` can only be turned *further on* from the CLI when the active profile already has them on — there's currently no CLI flag to force one back off for a single run if it's saved as on. Edit the profile (via `--config`) to change that.

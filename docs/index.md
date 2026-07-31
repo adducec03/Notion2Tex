@@ -20,7 +20,7 @@ Notion2Tex is a small command-line tool that fixes what generic converters miss,
 Notion2Tex does not use cloud APIs, accounts, or upload steps. You export HTML from Notion, run the tool locally, and get a PDF next to your files.
 
 - **Nothing is uploaded** — conversion runs entirely on your machine with your shell, Pandoc, and `pdflatex`
-- **The only outbound requests** are to download images Notion itself only linked to (page covers, "image from link" blocks, bookmark previews) — never your page content
+- **The only outbound requests** are to download images Notion itself only linked to (page covers, "image from link" blocks, bookmark previews) — never your page content. Add `--offline` for zero network calls, at the cost of those specific images
 - **No telemetry** or analytics in the CLI
 - **You keep the source** — the original HTML export stays untouched; outputs are `.tex`, `.pdf`, and optional `.log`
 
@@ -38,7 +38,7 @@ Your content stays on your disk, under your control.
 
 **Structure**
 
-Nested toggles become a proper heading hierarchy, with a matching table of contents.
+Nested toggles become a proper heading hierarchy. Add `--book` for a cover page, table of contents, and chapter breaks.
 
 </div>
 

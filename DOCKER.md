@@ -186,6 +186,10 @@ docker-compose run notion2tex Export.zip -v
 
 Missing LaTeX packages can be added to the Dockerfile's `apt-get install` list. Note that `soul`/`ulem` (strikethrough/underline) and `lmodern` come from separate Debian packages (`texlive-plain-generic`, `lmodern`), not `texlive-latex-extra` — if you trim the package list, keep those explicitly or those features silently stop rendering.
 
+### `Package babel Error: Unknown option 'italian'` (or another `--lang` code)
+
+The babel core package is present, but the language-specific file (`italian.ldf`) isn't — it ships in its own Debian package, `texlive-lang-italian`, already in the provided Dockerfile. If you trimmed the package list, add it back for whichever `--lang` codes you need (`english` ships with babel's core, no extra package required).
+
 ### Colored text, columns, callouts, or math are missing/plain in the PDF
 
 The Dockerfile installs Pandoc directly from a pinned GitHub release (`PANDOC_VERSION` build arg, currently `3.10.1`) instead of Debian's packaged `pandoc`, because that packaged version is too old to run the Lua filter and MathML-based math handling this pipeline relies on. If you changed the Dockerfile to use `apt install pandoc` instead, that's almost certainly why formatting is missing — revert to the GitHub-release install, or bump `PANDOC_VERSION` to a newer release if needed.

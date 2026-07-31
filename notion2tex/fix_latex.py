@@ -346,9 +346,12 @@ def _add_table_of_contents(text):
             1,
         )
 
+    # \tableofcontents (article class) already emits its own heading —
+    # \section*{\contentsname} — before the entries. No need to write one
+    # ourselves; doing so used to produce two stacked headings on the TOC
+    # page ("Indice" then "Contents"), since neither knew about the other.
     toc_block = (
         "\n\\newpage\n"
-        "\\section*{Indice}\n"
         "\\tableofcontents\n"
         "\\newpage\n"
         "\\pagenumbering{arabic}\n"
@@ -386,6 +389,17 @@ def _start_chapters_on_new_page(text: str) -> str:
         lambda m: "\\clearpage\n" + m.group(0),
         text,
     )
+
+
+def _remove_maketitle(text: str) -> str:
+    """
+    Non-book mode: no separate title page. Pandoc's \\maketitle would
+    otherwise duplicate the Notion page's own heading (the first
+    \\section{...}, from its <h1 class="page-title">) right underneath it —
+    drop \\maketitle and let that heading serve as the document's own
+    title, like any other section.
+    """
+    return re.sub(r"\\maketitle\s*\n*", "", text, count=1)
 
 
 def _add_running_chapter_header(text: str) -> str:
@@ -676,6 +690,32 @@ def _ensure_strikeout_support(text: str) -> str:
         return text
     return text.replace(
         r"\begin{document}", strikeout_block + "\n\\begin{document}", 1
+    )
+
+
+_BABEL_LANGUAGES = {
+    "en": "english",
+    "it": "italian",
+}
+
+
+def _ensure_language_support(text: str, lang: str | None) -> str:
+    """
+    Load babel for *lang* (a short code like "en"/"it"), which translates
+    kernel-generated strings (\\contentsname, used by \\tableofcontents'
+    own heading and running-header mark) and switches hyphenation rules to
+    match. No *lang* -> no babel, text unchanged: LaTeX's plain-English
+    defaults (e.g. "Contents") apply, same as today without this flag.
+    """
+    if lang is None:
+        return text
+    babel_name = _BABEL_LANGUAGES[lang]
+    if r"\usepackage[" + babel_name + "]{babel}" in text:
+        return text
+    return text.replace(
+        r"\begin{document}",
+        f"\\usepackage[{babel_name}]{{babel}}\n" + r"\begin{document}",
+        1,
     )
 
 
@@ -1035,7 +1075,7 @@ def _fix_display_math_blocks(text):
     return text, n_gather
 
 
-def fix_latex(tex_path, dark: bool = False):
+def fix_latex(tex_path, dark: bool = False, book: bool = False, lang: str | None = None):
     from notion2tex.console import console
 
     try:
@@ -1047,12 +1087,17 @@ def fix_latex(tex_path, dark: bool = False):
 
     text = _fix_literal_backslash_n_in_preamble(text)
     text = _ensure_strikeout_support(text)
+    text = _ensure_language_support(text, lang)
     text = _enable_section_numbering(text)
-    text = _unnumbered_cover_section(text)
+    if book:
+        text = _unnumbered_cover_section(text)
     text = _enable_hyperref_links(text)
-    text, n_toc = _add_table_of_contents(text)
-    text = _start_chapters_on_new_page(text)
-    text = _add_running_chapter_header(text)
+    if book:
+        text, n_toc = _add_table_of_contents(text)
+        text = _start_chapters_on_new_page(text)
+        text = _add_running_chapter_header(text)
+    else:
+        n_toc = 0
     text = _fix_figure_placement(text)
     text = _ensure_grffile(text)
     text = _ensure_callout_and_quote_support(text)
@@ -1062,7 +1107,10 @@ def fix_latex(tex_path, dark: bool = False):
 
     text = normalize_katex_in_document(text)
     text = _fix_figure_images(text, tex_path)
-    text = _build_cover_page(text)
+    if book:
+        text = _build_cover_page(text)
+    else:
+        text = _remove_maketitle(text)
     text = text.replace("├", r"\vdash")
     text = _fix_pandoc_char_escapes(text)
 

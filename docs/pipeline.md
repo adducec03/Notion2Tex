@@ -26,11 +26,11 @@ Pandoc turns the cleaned HTML into LaTeX. A bundled Lua filter fills in the form
 
 ## 4. Fix up the LaTeX
 
-The raw LaTeX from Pandoc gets polished: a proper title page and table of contents, chapters that each start on a new page with a running header, tables rebuilt for correct alignment, image paths and sizes fixed, math edge cases corrected, and (in `--dark` mode) a full dark color scheme applied.
+The raw LaTeX from Pandoc gets polished: tables rebuilt for correct alignment, image paths and sizes fixed, math edge cases corrected, and (in `--dark` mode) a full dark color scheme applied. With `--book`, this step also adds a designed title page, a table of contents, a page break before each top-level section, and a running chapter header.
 
 ## 5. Build the PDF
 
-`pdflatex` runs twice, so the table of contents and page numbers come out correct. Intermediate files are removed once the PDF is built successfully.
+`pdflatex` runs twice, so cross-references and page numbers (and the table of contents, in `--book` mode) come out correct. Intermediate files are removed once the PDF is built successfully.
 
 ## Want more detail?
 

@@ -62,6 +62,43 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Render the PDF in dark mode (dark gray page, light text and colors)",
     )
+    parser.add_argument(
+        "--book",
+        action="store_true",
+        help=(
+            "Add book-style structure: designed cover page, table of "
+            "contents, a page break before each top-level section, and a "
+            "running chapter header. Off by default (continuous document)."
+        ),
+    )
+    parser.add_argument(
+        "--lang",
+        choices=["en", "it"],
+        default=None,
+        help=(
+            "Document language: loads babel for translated headings "
+            "(e.g. table of contents) and correct hyphenation. "
+            "Unset by default (plain English kernel defaults)."
+        ),
+    )
+    parser.add_argument(
+        "--offline",
+        action="store_true",
+        help=(
+            "Skip downloading images Notion only linked to (page covers, "
+            "\"image from link\" blocks, bookmark previews) — no network "
+            "calls at all, at the cost of omitting those images."
+        ),
+    )
+    parser.add_argument(
+        "--output",
+        metavar="FILE",
+        help=(
+            "Move the finished PDF (or .tex, with --tex-only) to this path "
+            "instead of leaving it next to the input. Parent directories "
+            "are created if needed."
+        ),
+    )
     return parser
 
 
@@ -99,6 +136,10 @@ def main(argv: list[str] | None = None) -> int:
             tex_only=args.tex_only,
             quiet=not args.verbose,
             dark=args.dark,
+            book=args.book,
+            lang=args.lang,
+            offline=args.offline,
+            output=args.output,
         )
     except (FileNotFoundError, RuntimeError, ValueError) as exc:
         console.error(str(exc))

@@ -20,7 +20,7 @@ Re-run the conversion from the original export ZIP (not an already-extracted cop
 
 ## Linked or external images (page covers, bookmark previews) are missing
 
-These aren't embedded in the export — Notion only stores a URL, and Notion2Tex downloads them during conversion. Check the log for `Could not download image, omitting: <url>` and confirm the URL still works in a browser.
+These aren't embedded in the export — Notion only stores a URL, and Notion2Tex downloads them during conversion. Check the log for `Could not download image, omitting: <url>` and confirm the URL still works in a browser. If you passed `--offline`, this is expected — that flag skips these downloads intentionally.
 
 Running in Docker: this needs `ca-certificates` available at runtime, not just during the image build. The official image already includes it.
 
@@ -33,6 +33,14 @@ tlmgr install soul ulem float booktabs tabularx hyperref tcolorbox framed lmoder
 ```
 
 On Debian/Ubuntu, `soul`/`ulem` come from `texlive-plain-generic`, not `texlive-latex-extra`.
+
+## `Package babel Error: Unknown option ...` when using `--lang`
+
+The language-specific babel file (e.g. `italian.ldf`) isn't installed. On Debian/Ubuntu, install the matching `texlive-lang-*` package (`tlmgr install` works too):
+
+```bash
+apt install texlive-lang-italian
+```
 
 ## Colors, highlights, underline, columns, or callouts are missing or plain in the PDF
 

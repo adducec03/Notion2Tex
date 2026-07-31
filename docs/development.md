@@ -18,7 +18,7 @@ Notion2Tex/
 │   ├── cli.py            # Command-line interface
 │   ├── pipeline.py        # Build orchestration
 │   ├── clean_html.py      # HTML preprocessing
-│   ├── fix_latex.py       # LaTeX post-processing (incl. dark mode)
+│   ├── fix_latex.py       # LaTeX post-processing (incl. --book, --dark)
 │   ├── remote_images.py   # Downloads linked images
 │   └── filters/
 │       └── notion_formatting.lua   # Pandoc Lua filter

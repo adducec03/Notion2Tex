@@ -27,12 +27,15 @@ ARG PANDOC_VERSION=3.10.1
 # libavif-bin (avifdec) e webp (dwebp) servono a runtime per convertire in PNG
 # le immagini locali AVIF/WebP (es. copertine salvate dal web) - su macOS lo
 # stesso lavoro lo fa "sips", non disponibile qui dentro Linux.
+# texlive-lang-italian fornisce italian.ldf (babel) + sillabazione italiana,
+# necessari per --lang it; l'inglese e' gia' incluso in texlive-latex-base.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     texlive-latex-base \
     texlive-latex-recommended \
     texlive-fonts-recommended \
     texlive-latex-extra \
     texlive-plain-generic \
+    texlive-lang-italian \
     cm-super \
     lmodern \
     curl \

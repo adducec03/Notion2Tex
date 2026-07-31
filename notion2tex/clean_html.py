@@ -221,7 +221,7 @@ def _unwrap_toggle_lists(soup):
     return count
 
 
-def clean_html_for_pandoc(file_input, file_output):
+def clean_html_for_pandoc(file_input, file_output, offline: bool = False):
     try:
         with open(file_input, "r", encoding="utf-8") as f:
             soup = BeautifulSoup(f, "html.parser")
@@ -292,11 +292,18 @@ def clean_html_for_pandoc(file_input, file_output):
     console.detail(f"Image widths preserved → {images_sized}")
 
     # 7. Download externally-hosted images (page cover, "image from link",
-    # bookmark previews) so pdflatex can embed them like local assets
-    images_downloaded = download_remote_images(soup, work_dir)
-    bar.advance(sublabel="Remote images")
-    if images_downloaded:
-        console.detail(f"Remote images downloaded → {images_downloaded}")
+    # bookmark previews) so pdflatex can embed them like local assets.
+    # Skipped entirely in --offline mode: those <img> tags are left
+    # pointing at their remote URL, which the later LaTeX image-path step
+    # can't resolve either, so they're omitted the same clean way a failed
+    # download already is.
+    if offline:
+        bar.advance(sublabel="Remote images")
+    else:
+        images_downloaded = download_remote_images(soup, work_dir)
+        bar.advance(sublabel="Remote images")
+        if images_downloaded:
+            console.detail(f"Remote images downloaded → {images_downloaded}")
 
     # 8. Restore math (block equation figures + inline Notion tokens)
     block_figures = soup.find_all("figure", class_=lambda c: c and "equation" in c)

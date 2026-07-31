@@ -4,9 +4,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://adducec03.github.io/Notion2Tex/)
 
-Convert a **Notion HTML export** into a printable **PDF** with correct heading hierarchy, math, tables, images, and a clickable table of contents.
+Convert a **Notion HTML export** into a printable **PDF** with correct heading hierarchy, math, tables, and images.
 
-Designed for large course notes exported from Notion with KaTeX formulas, nested toggles, and `simple-table` blocks — and faithful to Notion's own formatting: colored/highlighted text, underline/strikethrough, multi-column layouts, callout and quote blocks, syntax-highlighted code, image alignment, and an optional **dark mode** (`--dark`).
+Faithful to Notion's own formatting: colored/highlighted text, underline/strikethrough, multi-column layouts, callout and quote blocks, syntax-highlighted code, and image alignment all carry over. A few opt-in flags cover the rest: `--book` adds a designed cover page, table of contents, chapter page breaks, and a running header (handy for long course notes); `--lang {en,it}` translates generated headings and fixes hyphenation; `--dark` renders a dark-mode PDF.
 
 **Full documentation:** [adducec03.github.io/Notion2Tex](https://adducec03.github.io/Notion2Tex/) · [PyPI](https://pypi.org/project/notion2tex/)
 
@@ -24,7 +24,7 @@ Designed for large course notes exported from Notion with KaTeX formulas, nested
 
 > **Pandoc version:** the pipeline relies on a Lua filter and MathML-based math handling that only work correctly on **fairly recent Pandoc builds**. Debian/Ubuntu's packaged `pandoc` can be much older and will silently drop formatting or math; if you hit that, install a current release directly from [pandoc.org](https://pandoc.org/installing.html) or use the Docker image below, which always pins a known-good version.
 
-Only your shell, Pandoc, and `pdflatex` run during conversion — the pipeline makes **no outbound network calls** except to download images that Notion itself only linked to (page covers, "image from link" blocks, bookmark previews); everything else stays on your machine.
+Only your shell, Pandoc, and `pdflatex` run during conversion — the pipeline makes **no outbound network calls** except to download images that Notion itself only linked to (page covers, "image from link" blocks, bookmark previews); everything else stays on your machine. Add `--offline` to skip those downloads too and make zero network calls, at the cost of omitting those images.
 
 ### Install
 
@@ -81,7 +81,11 @@ notion2tex --help
 notion2tex Export.zip --tex-only       # LaTeX only, no pdflatex
 notion2tex Export.zip -v               # show compiler output
 notion2tex Export.zip --no-color       # plain output
+notion2tex Export.zip --book           # cover page, TOC, chapter breaks, running header
+notion2tex Export.zip --lang it        # translated headings + hyphenation ({en,it})
 notion2tex Export.zip --dark           # dark gray page, light text/colors
+notion2tex Export.zip --offline        # zero network calls, skips linked images
+notion2tex Export.zip --output ~/Notes.pdf   # custom output path for the PDF
 ```
 
 See [Usage](https://adducec03.github.io/Notion2Tex/usage/) and [Troubleshooting](https://adducec03.github.io/Notion2Tex/troubleshooting/) on the docs site.
@@ -123,8 +127,8 @@ flowchart LR
 
 1. **clean_html** — Notion HTML fixes (toggles, tables, math, properties, callouts, code languages) and downloads any image Notion only linked to (cover, "image from link", bookmark previews).
 2. **Pandoc + Lua filter** — HTML → LaTeX; a bundled Lua filter (`notion_formatting.lua`) rebuilds columns, callouts, quotes, and bookmark cards, and re-injects colored/highlighted/underlined text that Pandoc's writer otherwise drops.
-3. **fix_latex** — TOC, cover page, figures, tables, math, page numbering, chapter page breaks, running chapter header, dark theme (`--dark`).
-4. **pdflatex** (×2) — PDF + table of contents.
+3. **fix_latex** — figures, tables, math, page numbering; cover page/TOC/chapter breaks/running header behind `--book`; dark theme (`--dark`).
+4. **pdflatex** (×2) — the second pass resolves page numbers and cross-references (and the table of contents, in `--book` mode).
 
 Details: [Pipeline](https://adducec03.github.io/Notion2Tex/pipeline/).
 

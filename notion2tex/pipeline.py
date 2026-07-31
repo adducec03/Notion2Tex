@@ -60,6 +60,22 @@ def _run_pdflatex(tex_name: str, *, cwd: Path, quiet: bool) -> int:
     )
 
 
+def _relocate_output(src: Path, output: str | Path | None) -> Path:
+    """
+    Move the final build artifact (.pdf, or .tex with --tex-only) to a
+    user-chosen path. Everything else (intermediate .tex when building a
+    PDF, .log) stays in the export folder next to the HTML — pdflatex needs
+    to run there for relative image paths to resolve, so only the finished
+    deliverable is worth relocating.
+    """
+    if output is None:
+        return src
+    dest = Path(output).expanduser().resolve()
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(src), str(dest))
+    return dest
+
+
 def convert(
     input_path: str | Path,
     *,
@@ -67,6 +83,10 @@ def convert(
     tex_only: bool = False,
     quiet: bool = True,
     dark: bool = False,
+    book: bool = False,
+    lang: str | None = None,
+    offline: bool = False,
+    output: str | Path | None = None,
 ) -> BuildResult:
     """
     Run clean → pandoc → fix_latex → pdflatex (×2).
@@ -98,7 +118,7 @@ def convert(
     console.banner(input_path=str(input_path), page=html.name)
 
     console.step(1, total_steps, "Clean HTML")
-    clean_html_for_pandoc(str(html), str(clean_html))
+    clean_html_for_pandoc(str(html), str(clean_html), offline=offline)
 
     console.step(2, total_steps, "Pandoc → LaTeX")
     pandoc_cmd = [
@@ -122,12 +142,13 @@ def convert(
 
     console.step(3, total_steps, "Fix LaTeX")
     with console.task("Applying LaTeX fixes"):
-        fix_latex(str(tex), dark=dark)
+        fix_latex(str(tex), dark=dark, book=book, lang=lang)
 
     if tex_only:
         removed = cleanup_build_artifacts(work_dir, base)
         if removed:
             console.detail(f"Removed {len(removed)} intermediate file(s)")
+        tex = _relocate_output(tex, output)
         print()
         console.success(f"LaTeX ready: {tex}")
         return BuildResult(html=html, tex=tex, pdf=None)
@@ -160,6 +181,7 @@ def convert(
     if removed:
         console.detail(f"Removed {len(removed)} intermediate file(s)")
 
+    pdf = _relocate_output(pdf, output)
     print()
     console.success(f"PDF ready: {pdf}")
     return BuildResult(html=html, tex=tex, pdf=pdf)

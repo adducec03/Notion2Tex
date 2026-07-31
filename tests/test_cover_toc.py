@@ -64,7 +64,10 @@ def test_inserts_toc_with_page_numbering():
     text, n = _add_table_of_contents(text)
     assert n == 1
     assert r"\pagenumbering{roman}" in text
-    assert r"\section*{Indice}" in text
+    assert r"\tableofcontents" in text
+    # no manual heading: \tableofcontents (article class) emits its own
+    # \section*{\contentsname} -- writing one here would duplicate it
+    assert r"\section*{Indice}" not in text
     assert r"\pagenumbering{arabic}" in text
     assert text.index(r"\pagenumbering{arabic}") < text.index(r"\section{Body}")
 

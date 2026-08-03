@@ -17,7 +17,17 @@ _UNSET = "Unset (default)"
 # already in *existing*.
 _LANG_CHOICES = [(_UNSET, None), ("English (en)", "en"), ("Italiano (it)", "it")]
 _FONT_CHOICES = [(_UNSET, None), ("Serif (Times-like)", "serif"), ("Sans (Helvetica-like)", "sans")]
-_FONT_SIZE_CHOICES = [(_UNSET, None), ("11pt", "11"), ("12pt", "12")]
+_FONT_SIZE_CHOICES = [
+    (_UNSET, None),
+    ("8pt", "8"),
+    ("9pt", "9"),
+    ("10pt", "10"),
+    ("11pt", "11"),
+    ("12pt", "12"),
+    ("14pt", "14"),
+    ("17pt", "17"),
+    ("20pt", "20"),
+]
 _PAPER_CHOICES = [("A4 (default)", None), ("Letter", "letter")]
 _MARGINS_CHOICES = [("Narrow", "narrow"), ("Normal (default)", None), ("Wide", "wide")]
 

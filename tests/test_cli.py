@@ -78,8 +78,14 @@ def test_font_flag_rejects_unsupported_value():
 
 
 def test_font_size_flag_accepts_supported_values():
-    args = _build_parser().parse_args(["export.zip", "--font-size", "12"])
-    assert args.font_size == "12"
+    for size in ("8", "9", "10", "11", "12", "14", "17", "20"):
+        args = _build_parser().parse_args(["export.zip", "--font-size", size])
+        assert args.font_size == size
+
+
+def test_font_size_flag_rejects_unsupported_value():
+    with pytest.raises(SystemExit):
+        _build_parser().parse_args(["export.zip", "--font-size", "13"])
 
 
 def test_paper_and_margins_flags():

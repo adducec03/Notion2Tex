@@ -170,9 +170,9 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--font-size",
-        choices=["10", "11", "12"],
+        choices=["8", "9", "10", "11", "12", "14", "17", "20"],
         default=None,
-        metavar="{10,11,12}",
+        metavar="{8,9,10,11,12,14,17,20}",
         help="Base font size in pt. Unset by default (LaTeX's own 10pt).",
     )
     parser.add_argument(

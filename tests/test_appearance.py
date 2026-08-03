@@ -51,6 +51,19 @@ def test_apply_font_size_appends_to_existing_options():
     assert r"\documentclass[twocolumn,11pt]{article}" in out
 
 
+def test_apply_font_size_standard_sizes_keep_article_class():
+    for size in ("10", "11", "12"):
+        out = _apply_font_size(_PREAMBLE, size)
+        assert f"\\documentclass[{size}pt]{{article}}" in out
+
+
+def test_apply_font_size_nonstandard_sizes_switch_to_extarticle():
+    for size in ("8", "9", "14", "17", "20"):
+        out = _apply_font_size(_PREAMBLE, size)
+        assert f"\\documentclass[{size}pt]{{extarticle}}" in out
+        assert "{article}" not in out
+
+
 def test_geometry_defaults_to_a4_normal_when_unset():
     out = _ensure_page_geometry(_PREAMBLE, None, None)
     assert r"\usepackage[a4paper,margin=1in]{geometry}" in out

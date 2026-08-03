@@ -99,7 +99,7 @@ notion2tex Export.zip --output ~/Documents/Notes.pdf
 
 ```bash
 notion2tex Export.zip --font serif           # {serif,sans}; unset = Latin Modern (default look)
-notion2tex Export.zip --font-size 12         # {10,11,12}; unset = LaTeX's own 10pt
+notion2tex Export.zip --font-size 12         # {8,9,10,11,12,14,17,20}; unset = LaTeX's own 10pt
 notion2tex Export.zip --paper letter         # {a4,letter}; default: a4
 notion2tex Export.zip --margins wide         # {narrow,normal,wide}; default: normal (1in)
 notion2tex Export.zip --accent-color 2E86AB  # custom link color, 6 hex digits (# optional)

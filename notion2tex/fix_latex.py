@@ -742,11 +742,20 @@ def _apply_font(text: str, font: str | None) -> str:
     return text.replace(r"\begin{document}", block + r"\begin{document}", 1)
 
 
+_STANDARD_ARTICLE_SIZES = {"10", "11", "12"}
+
+
 def _apply_font_size(text: str, font_size: str | None) -> str:
     """
-    Insert 10pt/11pt/12pt into \\documentclass[...]{article}'s (currently
-    empty) options. No *font_size* leaves LaTeX's own 10pt default in
-    place -- identical output to explicitly passing "10".
+    Insert a pt size into \\documentclass[...]{article}'s options. No
+    *font_size* leaves LaTeX's own 10pt default in place -- identical
+    output to explicitly passing "10".
+
+    Standard `article` only defines 10pt/11pt/12pt. Anything else (8, 9,
+    14, 17, 20 -- the sizes extsizes' size*.clo files provide) requires
+    switching the class to `extarticle`, a drop-in replacement built for
+    exactly this; at 10/11/12pt the class is left as plain `article` so
+    existing behavior/output is untouched.
     """
     if font_size is None:
         return text
@@ -754,9 +763,10 @@ def _apply_font_size(text: str, font_size: str | None) -> str:
     def repl(match: re.Match[str]) -> str:
         existing = match.group(1).strip()
         opts = f"{existing},{font_size}pt" if existing else f"{font_size}pt"
-        return f"\\documentclass[{opts}]"
+        cls = "article" if font_size in _STANDARD_ARTICLE_SIZES else "extarticle"
+        return f"\\documentclass[{opts}]{{{cls}}}"
 
-    return re.sub(r"\\documentclass\[([^\]]*)\]", repl, text, count=1)
+    return re.sub(r"\\documentclass\[([^\]]*)\]\{article\}", repl, text, count=1)
 
 
 _PAPER_OPTIONS = {"a4": "a4paper", "letter": "letterpaper"}

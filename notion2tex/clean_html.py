@@ -2,6 +2,7 @@ from bs4 import BeautifulSoup, NavigableString
 import html
 import os
 import sys
+import unicodedata
 from pathlib import Path
 import emoji
 import re
@@ -224,10 +225,19 @@ def _unwrap_toggle_lists(soup):
 def clean_html_for_pandoc(file_input, file_output, offline: bool = False):
     try:
         with open(file_input, "r", encoding="utf-8") as f:
-            soup = BeautifulSoup(f, "html.parser")
+            raw_html = f.read()
     except FileNotFoundError:
         console.error(f"HTML not found: {file_input}")
         return
+
+    # Some sources (copy-pasted text, certain OSes/keyboards) leave accented
+    # characters Unicode-decomposed -- e.g. "e" + a standalone combining
+    # grave accent instead of the precomposed "è". LaTeX has no definition
+    # for a bare combining accent and errors on it ("Unicode character ...
+    # not set up for use with LaTeX"), silently dropping the accent from
+    # the rendered PDF. NFC folds these back into their precomposed form,
+    # which LaTeX already handles fine everywhere else in the pipeline.
+    soup = BeautifulSoup(unicodedata.normalize("NFC", raw_html), "html.parser")
 
     work_dir = Path(file_input).resolve().parent
     bar = console.progress(10, "Preprocessing HTML")

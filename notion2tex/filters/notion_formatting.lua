@@ -86,9 +86,33 @@ local function wrap(inlines, before, after)
   return wrapped
 end
 
+-- soul's \hl{}/\ul{} rebuild the text character-by-character to find
+-- hyphenation points, and choke on anything that isn't plain hyphenatable
+-- text -- most commonly inline math (Notion lets you highlight/underline
+-- text that includes a formula). The failure isn't a clean, contained
+-- error either: it corrupts pdfTeX's group nesting badly enough that
+-- everything after it in the document degrades into a cascade of
+-- unrelated-looking errors ("Missing $ inserted", "Extra }", ...) until
+-- the 100-error abort limit kills the whole build with no PDF produced.
+-- \colorbox{}/\underline{} box their argument instead of hyphenating it,
+-- so they have no such restriction -- used as a fallback whenever the
+-- span's content isn't plain text.
+local function contains_math(inlines)
+  for _, inline in ipairs(inlines) do
+    if inline.t == "Math" then
+      return true
+    end
+    if inline.content and contains_math(inline.content) then
+      return true
+    end
+  end
+  return false
+end
+
 function Span(el)
   local inlines = el.content
   local changed = false
+  local has_math = contains_math(el.content)
 
   local highlight = el.attributes["notion-highlight"]
   if highlight then
@@ -96,14 +120,18 @@ function Span(el)
     if base then
       local rgb = BACKGROUND_COLORS[base]
       if rgb then
-        -- \sethlcolor takes a color name, not an inline model like
-        -- \textcolor[RGB]{...}, so define one locally first.
-        inlines = wrap(
-          inlines,
-          "{\\definecolor{notionhl}{RGB}{" .. rgb .. "}"
-            .. "\\sethlcolor{notionhl}\\hl{",
-          "}}"
-        )
+        if has_math then
+          inlines = wrap(inlines, "\\colorbox[RGB]{" .. rgb .. "}{", "}")
+        else
+          -- \sethlcolor takes a color name, not an inline model like
+          -- \textcolor[RGB]{...}, so define one locally first.
+          inlines = wrap(
+            inlines,
+            "{\\definecolor{notionhl}{RGB}{" .. rgb .. "}"
+              .. "\\sethlcolor{notionhl}\\hl{",
+            "}}"
+          )
+        end
         changed = true
       end
     else
@@ -117,7 +145,7 @@ function Span(el)
 
   local style = el.attributes["style"]
   if style and style:match("border%-bottom%s*:") then
-    inlines = wrap(inlines, "\\ul{", "}")
+    inlines = wrap(inlines, has_math and "\\underline{" or "\\ul{", "}")
     changed = true
   end
 
